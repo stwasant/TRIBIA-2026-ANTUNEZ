@@ -1,0 +1,281 @@
+import { useState, useMemo } from 'react';
+import useStore from '../store';
+import { GROUPS, PHASES } from '../data/matches';
+
+export default function Admin() {
+  const { getAllMatches, setMatchResult, clearMatchResult, exportData, importHistoricalData, clearAll } = useStore();
+  const matches = getAllMatches();
+
+  const [tab, setTab] = useState('results');
+  const [groupFilter, setGroupFilter] = useState('A');
+  const [importJson, setImportJson] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importSuccess, setImportSuccess] = useState('');
+  const [editScores, setEditScores] = useState({}); // { [matchId]: { home, away } }
+
+  const groupMatches = useMemo(() => {
+    return matches.filter(m => m.phase === 'group' && m.group === groupFilter);
+  }, [matches, groupFilter]);
+
+  const knockoutMatches = useMemo(() => {
+    return matches.filter(m => m.phase !== 'group');
+  }, [matches]);
+
+  const handleScoreChange = (matchId, field, value) => {
+    setEditScores(prev => ({
+      ...prev,
+      [matchId]: { ...prev[matchId], [field]: value },
+    }));
+  };
+
+  const handleSaveResult = (matchId) => {
+    const scores = editScores[matchId];
+    if (!scores) return;
+    const h = parseInt(scores.home ?? '');
+    const a = parseInt(scores.away ?? '');
+    if (!isNaN(h) && !isNaN(a) && h >= 0 && a >= 0) {
+      setMatchResult(matchId, h, a);
+    }
+  };
+
+  const handleClearResult = (matchId) => {
+    clearMatchResult(matchId);
+    setEditScores(prev => {
+      const next = { ...prev };
+      delete next[matchId];
+      return next;
+    });
+  };
+
+  const handleExport = () => {
+    const data = exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tribia-2026-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = () => {
+    setImportError('');
+    setImportSuccess('');
+    try {
+      const data = JSON.parse(importJson);
+      importHistoricalData(data);
+      setImportSuccess('✅ Datos importados correctamente');
+      setImportJson('');
+    } catch {
+      setImportError('❌ JSON inválido. Verifica el formato del archivo.');
+    }
+  };
+
+  const handleClearAll = () => {
+    if (window.confirm('¿Eliminar TODOS los datos? Esta acción no se puede deshacer.')) {
+      clearAll();
+    }
+  };
+
+  const ResultRow = ({ match }) => {
+    const currentHome = editScores[match.id]?.home ?? (match.homeScore !== null ? String(match.homeScore) : '');
+    const currentAway = editScores[match.id]?.away ?? (match.awayScore !== null ? String(match.awayScore) : '');
+    const hasResult = match.homeScore !== null;
+
+    return (
+      <div className={`card flex flex-wrap items-center gap-3 text-sm ${hasResult ? 'border-green-900/30' : ''}`}>
+        {/* Fecha */}
+        <div className="text-gray-500 text-xs w-20 shrink-0">
+          {match.date}<br />{match.time}
+        </div>
+
+        {/* Partido */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span>{match.homeFlag}</span>
+          <span className="font-medium text-white truncate">{match.home}</span>
+          <span className="text-gray-500 font-bold">vs</span>
+          <span className="font-medium text-white truncate">{match.away}</span>
+          <span>{match.awayFlag}</span>
+        </div>
+
+        {/* Resultado actual */}
+        {hasResult && (
+          <span className="text-green-400 font-bold">
+            {match.homeScore}–{match.awayScore}
+          </span>
+        )}
+
+        {/* Inputs */}
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="number" min="0" max="20"
+            value={currentHome}
+            onChange={e => handleScoreChange(match.id, 'home', e.target.value)}
+            className="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-1 text-white text-sm focus:border-yellow-500 focus:outline-none"
+            placeholder="–"
+          />
+          <span className="text-gray-500 font-bold">–</span>
+          <input
+            type="number" min="0" max="20"
+            value={currentAway}
+            onChange={e => handleScoreChange(match.id, 'away', e.target.value)}
+            className="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-1 text-white text-sm focus:border-yellow-500 focus:outline-none"
+            placeholder="–"
+          />
+          <button
+            onClick={() => handleSaveResult(match.id)}
+            className="bg-green-700 hover:bg-green-600 text-white text-xs px-2 py-1 rounded transition-colors"
+          >
+            ✓
+          </button>
+          {hasResult && (
+            <button
+              onClick={() => handleClearResult(match.id)}
+              className="text-red-500 hover:text-red-400 text-xs px-1"
+              title="Borrar resultado"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-5 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <span>⚙️</span> Panel de Administración
+      </h1>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-800 pb-0">
+        {[
+          { key: 'results', label: '📝 Resultados' },
+          { key: 'import', label: '📥 Importar/Exportar' },
+          { key: 'danger', label: '⚠️ Peligro' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === t.key
+                ? 'border-yellow-500 text-yellow-400'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Resultados */}
+      {tab === 'results' && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-400">
+            Ingresa los resultados oficiales de cada partido. Al guardar, los puntos se calculan automáticamente para todos los usuarios.
+          </p>
+
+          {/* Selector de grupo */}
+          <div>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {GROUPS.map(g => (
+                <button
+                  key={g}
+                  onClick={() => setGroupFilter(g)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    groupFilter === g ? 'bg-yellow-500 text-gray-950' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Grupo {g}
+                </button>
+              ))}
+              <button
+                onClick={() => setGroupFilter('knockout')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  groupFilter === 'knockout' ? 'bg-purple-500 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                🏆 Eliminatorias
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {groupFilter === 'knockout'
+                ? knockoutMatches.map(m => <ResultRow key={m.id} match={m} />)
+                : groupMatches.map(m => <ResultRow key={m.id} match={m} />)
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Importar/Exportar */}
+      {tab === 'import' && (
+        <div className="space-y-6">
+          {/* Exportar */}
+          <div className="card">
+            <h3 className="font-bold text-white mb-2">📤 Exportar datos</h3>
+            <p className="text-sm text-gray-400 mb-3">
+              Descarga un archivo JSON con todos los usuarios, pronósticos y resultados. 
+              Compártelo con otros participantes para sincronizar datos.
+            </p>
+            <button onClick={handleExport} className="btn-primary">
+              Descargar JSON
+            </button>
+          </div>
+
+          {/* Importar */}
+          <div className="card">
+            <h3 className="font-bold text-white mb-2">📥 Importar datos históricos</h3>
+            <p className="text-sm text-gray-400 mb-3">
+              Pega el contenido de un archivo JSON exportado previamente. Los datos nuevos se agregarán sin duplicar los existentes.
+            </p>
+            <textarea
+              value={importJson}
+              onChange={e => setImportJson(e.target.value)}
+              className="input mb-3 h-40 font-mono text-xs resize-y"
+              placeholder='{"users":[],"predictions":[],"matchResults":{}}'
+            />
+            {importError && <p className="text-red-400 text-sm mb-2">{importError}</p>}
+            {importSuccess && <p className="text-green-400 text-sm mb-2">{importSuccess}</p>}
+            <button onClick={handleImport} disabled={!importJson.trim()} className="btn-primary">
+              Importar
+            </button>
+          </div>
+
+          {/* Instrucciones */}
+          <div className="card bg-gray-900/50 text-sm text-gray-400">
+            <p className="font-medium text-white mb-2">💡 Formato de importación manual</p>
+            <pre className="text-xs overflow-auto bg-gray-950 p-3 rounded-lg">
+{`{
+  "users": [
+    { "id": "u-001", "name": "María", "avatar": "🦁", "createdAt": "2026-06-01T00:00:00.000Z" }
+  ],
+  "predictions": [
+    { "id": "p-001", "userId": "u-001", "matchId": "A1", "homeScore": 2, "awayScore": 0 }
+  ],
+  "matchResults": {
+    "A1": { "homeScore": 2, "awayScore": 0, "status": "finished" }
+  }
+}`}
+            </pre>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Peligro */}
+      {tab === 'danger' && (
+        <div className="card border-red-900/50 bg-red-950/10 space-y-4">
+          <h3 className="font-bold text-red-400 text-lg">⚠️ Zona de Peligro</h3>
+          <p className="text-sm text-gray-400">
+            Estas acciones son irreversibles. Asegúrate de exportar tus datos antes de continuar.
+          </p>
+          <button onClick={handleClearAll} className="btn-danger w-full">
+            🗑️ Eliminar todos los datos
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
