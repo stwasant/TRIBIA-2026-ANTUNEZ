@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import useStore from '../store';
-import { GROUPS, PHASES } from '../data/matches';
+import { GROUPS } from '../data/matches';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 export default function Admin() {
   const { getAllMatches, setMatchResult, clearMatchResult, exportData, importHistoricalData, clearAll } = useStore();
@@ -152,8 +153,9 @@ export default function Admin() {
       <div className="flex gap-2 border-b border-gray-800 pb-0">
         {[
           { key: 'results', label: '📝 Resultados' },
-          { key: 'import', label: '📥 Importar/Exportar' },
-          { key: 'danger', label: '⚠️ Peligro' },
+        { key: 'import', label: '📥 Importar/Exportar' },
+        { key: 'supabase', label: '🔗 Supabase' },
+        { key: 'danger', label: '⚠️ Peligro' },
         ].map(t => (
           <button
             key={t.key}
@@ -260,6 +262,64 @@ export default function Admin() {
   }
 }`}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Supabase */}
+      {tab === 'supabase' && (
+        <div className="space-y-4">
+          {isSupabaseConfigured ? (
+            <div className="card border-green-900/50 bg-green-950/10">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">✅</span>
+                <div>
+                  <p className="font-bold text-green-400">Supabase conectado</p>
+                  <p className="text-sm text-gray-400">Los datos se comparten en tiempo real entre todos los dispositivos.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card border-orange-900/40 bg-orange-950/10">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">⚠️</span>
+                <div>
+                  <p className="font-bold text-orange-400">Supabase no configurado</p>
+                  <p className="text-sm text-gray-400">Actualmente los datos solo se guardan localmente.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="card space-y-4 text-sm text-gray-300">
+            <h3 className="font-bold text-white text-base">📋 Cómo configurar Supabase (gratis)</h3>
+            <ol className="space-y-3 list-decimal list-inside text-gray-400">
+              <li>
+                Ve a <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">supabase.com</a> y crea una cuenta gratuita
+              </li>
+              <li>Crea un nuevo proyecto (elige región cercana, ej: <em>East US</em>)</li>
+              <li>
+                Ve a <strong className="text-white">SQL Editor</strong> y ejecuta el contenido del archivo{' '}
+                <code className="bg-gray-800 px-1 rounded text-yellow-400">supabase-schema.sql</code>{' '}
+                que está en la raíz del proyecto
+              </li>
+              <li>
+                Ve a <strong className="text-white">Settings → API</strong> y copia:
+                <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                  <li><strong className="text-white">Project URL</strong></li>
+                  <li><strong className="text-white">anon public key</strong></li>
+                </ul>
+              </li>
+              <li>
+                Crea el archivo <code className="bg-gray-800 px-1 rounded text-yellow-400">.env.local</code> en la raíz del proyecto:
+                <pre className="bg-gray-950 rounded-lg p-3 mt-2 text-xs overflow-auto">
+{`VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGci...`}
+                </pre>
+              </li>
+              <li>Para GitHub Pages, agrega esas mismas variables en <strong className="text-white">Settings → Secrets → Actions</strong> de tu repo como <code className="bg-gray-800 px-1 rounded">VITE_SUPABASE_URL</code> y <code className="bg-gray-800 px-1 rounded">VITE_SUPABASE_ANON_KEY</code></li>
+              <li>Reinicia el servidor: <code className="bg-gray-800 px-1 rounded">npm run dev</code></li>
+            </ol>
           </div>
         </div>
       )}

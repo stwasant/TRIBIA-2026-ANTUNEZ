@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import useStore from '../../store';
+import { isSupabaseConfigured } from '../../lib/supabase';
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -86,6 +87,15 @@ export default function Layout({ children }) {
           ))}
         </nav>
       </header>
+
+      {/* Banner: Supabase no configurado */}
+      {!isSupabaseConfigured && (
+        <div className="bg-orange-900/80 border-b border-orange-700 text-orange-200 text-xs text-center py-1.5 px-4">
+          ⚠️ Modo local — Los datos solo se guardan en este dispositivo.{' '}
+          <Link to="/admin" className="underline hover:text-white">Configura Supabase</Link>{' '}
+          para compartir con todos.
+        </div>
+      )}
 
       {/* Contenido principal */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
