@@ -50,7 +50,13 @@ export default function Home() {
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-yellow-950 border border-yellow-900/30 rounded-2xl p-6 text-center">
+      <div className="rounded-2xl overflow-hidden border border-yellow-900/30">
+        <img
+          src="/TRIBIA-2026-ANTUNEZ/image.png"
+          alt="Quiniela 2026 Antunez"
+          className="w-full object-cover max-h-72 sm:max-h-96"
+        />
+        <div className="bg-gradient-to-br from-gray-900 via-gray-900 to-yellow-950 p-6 text-center">
         <div className="text-5xl mb-2">🏆</div>
         <h1 className="text-3xl font-black text-yellow-400 mb-1">TRIBIA 2026</h1>
         <p className="text-gray-400 text-sm">Pronósticos · Mundial de Fútbol · USA · México · Canadá</p>
@@ -79,6 +85,7 @@ export default function Home() {
             <div className="text-2xl font-bold text-white">{users.length}</div>
             <div className="text-gray-500 text-xs hover:text-white">Participantes</div>
           </Link>
+        </div>
         </div>
       </div>
 
