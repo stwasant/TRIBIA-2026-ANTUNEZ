@@ -11,9 +11,12 @@ export default function Pronosticos() {
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [filter, setFilter] = useState('all');
   const [viewUserId, setViewUserId] = useState(null);
+  const adminUnlocked = sessionStorage.getItem('tribia-admin-unlocked') === 'true';
 
   const activeUserId = viewUserId || currentUserId;
   const predictions = getUserPredictions(activeUserId);
+  const isViewingOthers = viewUserId && viewUserId !== currentUserId;
+  const canEdit = !isViewingOthers || adminUnlocked;
 
   const matchesWithPred = useMemo(() => {
     return matches
@@ -65,9 +68,14 @@ export default function Pronosticos() {
     <div className="space-y-4">
       {/* Cabecera */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <span>🎯</span> Pronósticos
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <span>🎯</span> Pronósticos
+          </h1>
+          {isViewingOthers && !adminUnlocked && (
+            <p className="text-xs text-gray-500 mt-1">👁️ Ver pronósticos de otro usuario (solo lectura)</p>
+          )}
+        </div>
 
         {/* Selector de usuario para ver otros */}
         <div className="flex items-center gap-2">
@@ -139,7 +147,7 @@ export default function Pronosticos() {
             key={match.id}
             match={match}
             prediction={prediction}
-            onPredict={activeUserId === currentUserId ? (m) => setSelectedMatch(m) : null}
+            onPredict={canEdit ? (m) => setSelectedMatch(m) : null}
           />
         ))}
       </div>
