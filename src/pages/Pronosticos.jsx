@@ -17,6 +17,7 @@ export default function Pronosticos() {
   const predictions = getUserPredictions(activeUserId);
   const isViewingOthers = viewUserId && viewUserId !== currentUserId;
   const canEdit = !isViewingOthers || adminUnlocked;
+  const activeUser = users.find(u => u.id === activeUserId);
 
   const matchesWithPred = useMemo(() => {
     return matches
@@ -42,8 +43,10 @@ export default function Pronosticos() {
         if (v !== null) pts += v;
       }
     });
-    return pts;
-  }, [predictions, matches]);
+    // Sumar puntos base del usuario (misma lógica que Home)
+    const basePoints = activeUser?.points || 0;
+    return pts + basePoints;
+  }, [predictions, matches, activeUser]);
 
   const scheduledWithoutPred = matches.filter(
     m => disponibleParaPronosticar(m) && !predictions.find(p => p.matchId === m.id)
@@ -61,8 +64,6 @@ export default function Pronosticos() {
       </div>
     );
   }
-
-  const activeUser = users.find(u => u.id === activeUserId);
 
   return (
     <div className="space-y-4">
