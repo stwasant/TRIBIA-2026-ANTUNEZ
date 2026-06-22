@@ -30,7 +30,9 @@ export default function Home() {
 
   // Pronósticos de hoy por partido
   const todayPredictions = useMemo(() => {
-    const today = matches.filter(m => isMatchToday(m));
+    const today = matches
+      .filter(m => isMatchToday(m))
+      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
     return today.map(match => {
       const userPreds = users.map(user => {
         const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
