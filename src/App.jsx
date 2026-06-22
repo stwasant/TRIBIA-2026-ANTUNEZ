@@ -8,6 +8,7 @@ import Usuarios from './pages/Usuarios';
 import Admin from './pages/Admin';
 import useStore from './store';
 import { isSupabaseConfigured } from './lib/supabase';
+import { useLiveScores } from './hooks/useLiveScores';
 
 export default function App() {
   const { syncFromSupabase, subscribeRealtime, loading } = useStore();
@@ -18,6 +19,9 @@ export default function App() {
     const unsubscribe = subscribeRealtime();
     return unsubscribe;
   }, []);
+
+  // Auto-sync live/finished scores from football-data.org every 90s
+  useLiveScores();
 
   return (
     <BrowserRouter basename="/TRIBIA-2026-ANTUNEZ">
