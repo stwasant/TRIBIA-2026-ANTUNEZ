@@ -86,58 +86,92 @@ export default function Home() {
       {todayPredictions.length > 0 && (
         <div>
           <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-            <span>📅</span> Pronósticos de Hoy
+            <span>📅</span> Pronósticos de Hoy - {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </h2>
 
-          <div className="space-y-3">
-            {todayPredictions.map(({ match, userPredictions, totalPredicted }) => (
-              <div key={match.id} className="card">
-                {/* Cabecera del partido */}
-                <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-800">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="text-center flex-1">
-                      <div className="text-2xl mb-1">{match.homeFlag}</div>
-                      <div className="text-xs font-medium text-white">{match.home}</div>
-                    </div>
-                    <div className="text-center px-2">
-                      <div className="text-gray-500 text-sm font-bold">vs</div>
-                      <div className="text-xs text-gray-600">{formatMatchLocalTime(match)}</div>
-                    </div>
-                    <div className="text-center flex-1">
-                      <div className="text-2xl mb-1">{match.awayFlag}</div>
-                      <div className="text-xs font-medium text-white">{match.away}</div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500 ml-3">
-                    {totalPredicted}/{users.length} pronosticaron
-                  </div>
-                </div>
-
-                {/* Lista de pronósticos por usuario */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {userPredictions.map(({ user, prediction }) => (
-                    <div
-                      key={user.id}
-                      className={`text-center p-2 rounded-lg border transition-colors ${
-                        prediction
-                          ? 'bg-yellow-950/30 border-yellow-900/50'
-                          : 'bg-gray-800/30 border-gray-800'
-                      }`}
-                    >
-                      <div className="text-xl mb-1">{user.avatar}</div>
-                      <div className="text-xs text-gray-400 truncate mb-1">{user.name}</div>
-                      {prediction ? (
-                        <div className="text-sm font-bold text-yellow-400">
-                          {prediction.homeScore}–{prediction.awayScore}
+          <div className="card overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left p-2 text-gray-400 font-medium sticky left-0 bg-[#1a1f2e] z-10">
+                    Participante
+                  </th>
+                  {todayPredictions.map(({ match }) => (
+                    <th key={match.id} className="text-center p-2 font-medium min-w-[90px]">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1 text-base">
+                          <span>{match.homeFlag}</span>
+                          <span className="text-gray-500 text-xs">vs</span>
+                          <span>{match.awayFlag}</span>
                         </div>
-                      ) : (
-                        <div className="text-xs text-gray-600">Sin pronóstico</div>
-                      )}
-                    </div>
+                        <div className="text-xs text-gray-500">{formatMatchLocalTime(match)}</div>
+                      </div>
+                    </th>
                   ))}
-                </div>
-              </div>
-            ))}
+                  <th className="text-center p-2 text-yellow-400 font-medium min-w-[70px]">
+                    Pts Hoy
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Fila de Resultado Real */}
+                <tr className="border-b border-gray-800 bg-gray-900/50">
+                  <td className="p-2 font-medium text-white sticky left-0 bg-gray-900/80 z-10">
+                    Resultado Real
+                  </td>
+                  {todayPredictions.map(({ match }) => (
+                    <td key={match.id} className="text-center p-2">
+                      {match.status === 'finished' ? (
+                        <span className="font-bold text-green-400">
+                          {match.homeScore}–{match.awayScore}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600">-</span>
+                      )}
+                    </td>
+                  ))}
+                  <td className="text-center p-2 text-gray-600">-</td>
+                </tr>
+                
+                {/* Filas de usuarios */}
+                {users.map(user => {
+                  const userPredictionsToday = todayPredictions.map(({ match }) => {
+                    return predictions.find(p => p.userId === user.id && p.matchId === match.id);
+                  });
+                  const hasPredictions = userPredictionsToday.some(p => p);
+                  
+                  return (
+                    <tr key={user.id} className={`border-b border-gray-800 hover:bg-gray-900/30 transition-colors ${hasPredictions ? 'bg-yellow-950/10' : ''}`}>
+                      <td className="p-2 sticky left-0 bg-[#1a1f2e] z-10">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{user.avatar}</span>
+                          <span className="font-medium text-white text-xs sm:text-sm truncate max-w-[100px]">
+                            {user.name}
+                          </span>
+                        </div>
+                      </td>
+                      {todayPredictions.map(({ match }) => {
+                        const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
+                        return (
+                          <td key={match.id} className="text-center p-2">
+                            {pred ? (
+                              <span className="font-bold text-white">
+                                {pred.homeScore}–{pred.awayScore}
+                              </span>
+                            ) : (
+                              <span className="text-gray-600">-</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="text-center p-2 text-yellow-400 font-bold">
+                        -
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
