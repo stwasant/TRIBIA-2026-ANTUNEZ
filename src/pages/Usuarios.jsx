@@ -7,6 +7,9 @@ const AVATARS = ['⚽','🦁','🐯','🦊','🦅','🐉','🦈','🐺','🦋','
 export default function Usuarios() {
   const { users, currentUserId, addUser, removeUser, setCurrentUser } = useStore();
   const [showForm, setShowForm] = useState(false);
+  // Solo quien desbloqueó Admin con el PIN puede eliminar usuarios
+  const adminUnlocked =
+    typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tribia-admin-unlocked') === '1';
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('⚽');
 
@@ -124,13 +127,15 @@ export default function Usuarios() {
                 {user.id === currentUserId && (
                   <span className="text-yellow-400 text-sm font-medium">✓ Seleccionado</span>
                 )}
-                <button
-                  onClick={() => handleRemove(user.id, user.name)}
-                  className="text-gray-600 hover:text-red-400 transition-colors p-1"
-                  title="Eliminar usuario"
-                >
-                  🗑️
-                </button>
+                {adminUnlocked && (
+                  <button
+                    onClick={() => handleRemove(user.id, user.name)}
+                    className="text-gray-600 hover:text-red-400 transition-colors p-1"
+                    title="Eliminar usuario (admin)"
+                  >
+                    🗑️
+                  </button>
+                )}
               </div>
             </div>
           ))}
