@@ -1,5 +1,38 @@
 import { useState } from 'react';
 import { formatMatchLocalDateTime } from '../../utils/scoring';
+import { ALL_MATCHES } from '../../data/matches';
+
+// Últimos N partidos terminados de un equipo
+function getTeamForm(teamName, currentMatchId, n = 5) {
+  const finished = ALL_MATCHES.filter(m =>
+    m.status === 'finished' &&
+    m.id !== currentMatchId &&
+    (m.home === teamName || m.away === teamName)
+  ).sort((a, b) => new Date(b.kickoff) - new Date(a.kickoff)).slice(0, n);
+
+  return finished.map(m => {
+    const isHome = m.home === teamName;
+    const gf = isHome ? m.homeScore : m.awayScore;
+    const gc = isHome ? m.awayScore : m.homeScore;
+    if (gf > gc) return 'W';
+    if (gf === gc) return 'D';
+    return 'L';
+  });
+}
+
+function FormBadge({ result }) {
+  const styles = {
+    W: 'bg-green-500 text-white',
+    D: 'bg-yellow-500 text-gray-900',
+    L: 'bg-red-500 text-white',
+  };
+  const labels = { W: 'G', D: 'E', L: 'P' };
+  return (
+    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold ${styles[result]}`}>
+      {labels[result]}
+    </span>
+  );
+}
 
 export default function PredictionModal({ match, prediction, onSave, onClose }) {
   const [homeScore, setHomeScore] = useState(
@@ -8,6 +41,9 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
   const [awayScore, setAwayScore] = useState(
     prediction?.awayScore !== undefined ? String(prediction.awayScore) : ''
   );
+
+  const homeForm = getTeamForm(match.home, match.id);
+  const awayForm = getTeamForm(match.away, match.id);
 
   const handleSave = () => {
     const h = parseInt(homeScore);
@@ -40,16 +76,26 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
           {formatMatchLocalDateTime(match)}{match.city ? ` · ${match.city}` : ''}
         </p>
 
-        {/* Equipos */}
+        {/* Equipos + forma */}
         <div className="flex items-center justify-between mb-5 bg-gray-800 rounded-xl p-3">
           <div className="flex-1 text-center">
             <div className="text-3xl">{match.homeFlag}</div>
             <div className="text-xs font-medium text-white mt-1">{match.home}</div>
+            {homeForm.length > 0 && (
+              <div className="flex gap-1 justify-center mt-2">
+                {homeForm.map((r, i) => <FormBadge key={i} result={r} />)}
+              </div>
+            )}
           </div>
           <div className="text-gray-500 font-bold">vs</div>
           <div className="flex-1 text-center">
             <div className="text-3xl">{match.awayFlag}</div>
             <div className="text-xs font-medium text-white mt-1">{match.away}</div>
+            {awayForm.length > 0 && (
+              <div className="flex gap-1 justify-center mt-2">
+                {awayForm.map((r, i) => <FormBadge key={i} result={r} />)}
+              </div>
+            )}
           </div>
         </div>
 

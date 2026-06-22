@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
 import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime } from '../utils/scoring';
@@ -21,6 +21,35 @@ export default function Home() {
       })
       .sort((a, b) => b.puntosTotales - a.puntosTotales || b.stats.aciertosExactos - a.stats.aciertosExactos);
   }, [users, predictions, matches]);
+
+  // ─── Snapshot de ranking para mostrar movimiento de posiciones ───────────
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const prevRanking = useMemo(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('quinela-ranking-snapshot') || 'null');
+      // Solo usar si es de un día anterior
+      if (saved && saved.date !== todayKey) return saved.positions;
+      return null;
+    } catch { return null; }
+  }, [todayKey]);
+
+  // Guardar snapshot de hoy (se actualiza con cada resultado nuevo)
+  useEffect(() => {
+    if (ranking.length === 0) return;
+    const positions = {};
+    ranking.forEach(({ user }, idx) => { positions[user.id] = idx + 1; });
+    localStorage.setItem('quinela-ranking-snapshot', JSON.stringify({ date: todayKey, positions }));
+  }, [ranking, todayKey]);
+
+  function getMovement(userId, currentIdx) {
+    if (!prevRanking) return null;
+    const prev = prevRanking[userId];
+    if (prev == null) return { type: 'new' };
+    const diff = prev - (currentIdx + 1); // positivo = subió
+    if (diff === 0) return { type: 'same' };
+    return { type: diff > 0 ? 'up' : 'down', diff: Math.abs(diff) };
+  }
 
   // Usar fecha/hora local del usuario
   const todayMatches = matches.filter(m => isMatchToday(m)).length;
@@ -224,12 +253,22 @@ export default function Home() {
                   idx === 2 ? 'border-amber-700/30' : ''
                 }`}
               >
-                {/* Posición */}
-                <div className="text-center w-8 shrink-0">
+                {/* Posición + movimiento */}
+                <div className="text-center w-10 shrink-0">
                   {idx === 0 ? <span className="text-2xl">🥇</span> :
                    idx === 1 ? <span className="text-2xl">🥈</span> :
                    idx === 2 ? <span className="text-2xl">🥉</span> :
                    <span className="text-gray-500 font-bold text-lg">{idx + 1}</span>}
+                  {(() => {
+                    const mv = getMovement(user.id, idx);
+                    if (!mv || mv.type === 'same') return null;
+                    if (mv.type === 'new') return <div className="text-xs text-yellow-400 font-bold">NEW</div>;
+                    return (
+                      <div className={`text-xs font-bold flex items-center justify-center gap-0.5 ${mv.type === 'up' ? 'text-green-400' : 'text-red-400'}`}>
+                        {mv.type === 'up' ? '▲' : '▼'}{mv.diff}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Avatar y nombre */}
