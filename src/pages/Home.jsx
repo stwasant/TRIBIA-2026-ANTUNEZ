@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario } from '../utils/scoring';
+import { calcularTotalUsuario, isMatchToday, isMatchLive } from '../utils/scoring';
 
 export default function Home() {
   const { users, predictions, getAllMatches } = useStore();
@@ -9,17 +9,24 @@ export default function Home() {
 
   const ranking = useMemo(() => {
     return users
-      .map(user => ({
-        user,
-        stats: calcularTotalUsuario(user.id, predictions, matches),
-        totalPronosticos: predictions.filter(p => p.userId === user.id).length,
-      }))
-      .sort((a, b) => b.stats.total - a.stats.total || b.stats.aciertosExactos - a.stats.aciertosExactos);
+      .map(user => {
+        const stats = calcularTotalUsuario(user.id, predictions, matches);
+        const puntosTotales = stats.total + (user.points || 0);
+        return {
+          user,
+          stats,
+          puntosTotales,
+          totalPronosticos: predictions.filter(p => p.userId === user.id).length,
+        };
+      })
+      .sort((a, b) => b.puntosTotales - a.puntosTotales || b.stats.aciertosExactos - a.stats.aciertosExactos);
   }, [users, predictions, matches]);
 
+  // Usar fecha/hora local del usuario
+  const todayMatches = matches.filter(m => isMatchToday(m)).length;
   const finishedMatches = matches.filter(m => m.status === 'finished').length;
   const upcomingMatches = matches.filter(m => m.status === 'scheduled').length;
-  const liveMatches = matches.filter(m => m.status === 'live').length;
+  const liveMatches = matches.filter(m => isMatchLive(m)).length;
 
   return (
     <div className="space-y-6">
@@ -29,24 +36,30 @@ export default function Home() {
         <h1 className="text-3xl font-black text-yellow-400 mb-1">TRIBIA 2026</h1>
         <p className="text-gray-400 text-sm">Pronósticos · Mundial de Fútbol · USA · México · Canadá</p>
         <div className="flex justify-center gap-6 mt-4 text-sm">
-          <div className="text-center">
+          <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
             <div className="text-2xl font-bold text-green-400">{finishedMatches}</div>
-            <div className="text-gray-500 text-xs">Jugados</div>
-          </div>
+            <div className="text-gray-500 text-xs hover:text-green-400">Jugados</div>
+          </Link>
           {liveMatches > 0 && (
-            <div className="text-center">
+            <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
               <div className="text-2xl font-bold text-red-400 animate-pulse">{liveMatches}</div>
-              <div className="text-gray-500 text-xs">En vivo</div>
-            </div>
+              <div className="text-gray-500 text-xs hover:text-red-400">En vivo 🔴</div>
+            </Link>
           )}
-          <div className="text-center">
+          {todayMatches > 0 && (
+            <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
+              <div className="text-2xl font-bold text-yellow-400">{todayMatches}</div>
+              <div className="text-gray-500 text-xs hover:text-yellow-400">Hoy 📅</div>
+            </Link>
+          )}
+          <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
             <div className="text-2xl font-bold text-blue-400">{upcomingMatches}</div>
-            <div className="text-gray-500 text-xs">Por jugar</div>
-          </div>
-          <div className="text-center">
+            <div className="text-gray-500 text-xs hover:text-blue-400">Por jugar</div>
+          </Link>
+          <Link to="/usuarios" className="text-center hover:scale-105 transition-transform cursor-pointer">
             <div className="text-2xl font-bold text-white">{users.length}</div>
-            <div className="text-gray-500 text-xs">Participantes</div>
-          </div>
+            <div className="text-gray-500 text-xs hover:text-white">Participantes</div>
+          </Link>
         </div>
       </div>
 
@@ -64,7 +77,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-2">
-            {ranking.map(({ user, stats, totalPronosticos }, idx) => (
+            {ranking.map(({ user, stats, puntosTotales, totalPronosticos }, idx) => (
               <div
                 key={user.id}
                 className={`card flex items-center gap-4 transition-all hover:border-gray-700 ${
@@ -108,7 +121,7 @@ export default function Home() {
 
                 {/* Puntos */}
                 <div className="text-center shrink-0">
-                  <div className="text-2xl font-black text-yellow-400">{stats.total}</div>
+                  <div className="text-2xl font-black text-yellow-400">{puntosTotales}</div>
                   <div className="text-xs text-gray-500">pts</div>
                 </div>
               </div>

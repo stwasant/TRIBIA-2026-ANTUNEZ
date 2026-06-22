@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import useStore from '../store';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const AVATARS = ['⚽','🦁','🐯','🦊','🦅','🐉','🦈','🐺','🦋','🌟','🔥','💫','🎯','👑','🏆','🎪','🤠','🧙','🦝','🐸','🦜','🐻','🦩','🐧'];
 
@@ -9,10 +10,10 @@ export default function Usuarios() {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState('⚽');
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name.trim()) return;
-    const id = addUser(name, avatar);
-    setCurrentUser(id);
+    const id = await addUser(name, avatar);
+    if (id) setCurrentUser(id);
     setName('');
     setAvatar('⚽');
     setShowForm(false);
@@ -139,8 +140,9 @@ export default function Usuarios() {
       {/* Info */}
       <div className="card bg-gray-900/50 text-sm">
         <p className="text-gray-400">
-          💡 Los datos se guardan localmente en este dispositivo. Comparte el JSON de exportación 
-          desde el panel <strong className="text-white">Admin</strong> para sincronizar entre dispositivos.
+          {isSupabaseConfigured
+            ? <>☁️ Los usuarios se guardan en <strong className="text-white">Supabase</strong> y se comparten en tiempo real entre todos los dispositivos.</>
+            : <>💡 Los datos se guardan localmente en este dispositivo. Configura <strong className="text-white">Supabase</strong> para sincronizar entre todos.</>}
         </p>
       </div>
     </div>

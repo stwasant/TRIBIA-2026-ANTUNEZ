@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import useStore from '../store';
 import { GROUPS } from '../data/matches';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { formatMatchLocalDate, formatMatchLocalTime } from '../utils/scoring';
 
 export default function Admin() {
   const { getAllMatches, setMatchResult, clearMatchResult, exportData, importHistoricalData, clearAll } = useStore();
@@ -13,6 +14,32 @@ export default function Admin() {
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
   const [editScores, setEditScores] = useState({}); // { [matchId]: { home, away } }
+
+  // ─── Protección por PIN (definido en VITE_ADMIN_PIN) ────────
+  const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN;
+  const [unlocked, setUnlocked] = useState(
+    () => !ADMIN_PIN || sessionStorage.getItem('tribia-admin-unlocked') === '1'
+  );
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
+  const handleUnlock = (e) => {
+    e?.preventDefault();
+    if (pinInput === ADMIN_PIN) {
+      sessionStorage.setItem('tribia-admin-unlocked', '1');
+      setUnlocked(true);
+      setPinInput('');
+      setPinError('');
+    } else {
+      setPinError('PIN incorrecto. Inténtalo de nuevo.');
+      setPinInput('');
+    }
+  };
+
+  const handleLock = () => {
+    sessionStorage.removeItem('tribia-admin-unlocked');
+    setUnlocked(false);
+  };
 
   const groupMatches = useMemo(() => {
     return matches.filter(m => m.phase === 'group' && m.group === groupFilter);
@@ -87,7 +114,7 @@ export default function Admin() {
       <div className={`card flex flex-wrap items-center gap-3 text-sm ${hasResult ? 'border-green-900/30' : ''}`}>
         {/* Fecha */}
         <div className="text-gray-500 text-xs w-20 shrink-0">
-          {match.date}<br />{match.time}
+          {formatMatchLocalDate(match)}<br />{formatMatchLocalTime(match)}
         </div>
 
         {/* Partido */}
@@ -143,11 +170,53 @@ export default function Admin() {
     );
   };
 
+  // Bloqueo: si hay PIN configurado y no se ha desbloqueado, pedirlo
+  if (!unlocked) {
+    return (
+      <div className="max-w-sm mx-auto mt-10">
+        <form onSubmit={handleUnlock} className="card space-y-4 text-center">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-xl font-bold text-white">Panel de Administración</h1>
+          <p className="text-sm text-gray-400">
+            Ingresa el PIN de administrador para acceder.
+          </p>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoFocus
+            value={pinInput}
+            onChange={e => setPinInput(e.target.value)}
+            placeholder="PIN"
+            className="input text-center tracking-widest"
+          />
+          {pinError && <p className="text-sm text-red-400">{pinError}</p>}
+          <button type="submit" className="btn-primary w-full">Entrar</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-        <span>⚙️</span> Panel de Administración
-      </h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <span>⚙️</span> Panel de Administración
+        </h1>
+        {ADMIN_PIN && (
+          <button
+            onClick={handleLock}
+            className="text-xs text-gray-400 hover:text-white border border-gray-700 rounded-lg px-3 py-1.5"
+          >
+            🔒 Bloquear
+          </button>
+        )}
+      </div>
+
+      {!ADMIN_PIN && (
+        <div className="card border-orange-900/40 bg-orange-950/10 text-sm text-orange-300">
+          ⚠️ No hay PIN configurado (<code>VITE_ADMIN_PIN</code> en <code>.env.local</code>). El panel está sin protección.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-800 pb-0">

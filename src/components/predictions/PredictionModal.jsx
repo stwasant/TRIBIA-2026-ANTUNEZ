@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatMatchLocalDateTime } from '../../utils/scoring';
 
 export default function PredictionModal({ match, prediction, onSave, onClose }) {
   const [homeScore, setHomeScore] = useState(
@@ -32,8 +33,11 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
       <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Cabecera */}
         <h3 className="text-center text-lg font-bold text-white mb-1">Ingresa tu pronóstico</h3>
-        <p className="text-center text-xs text-gray-400 mb-4">
+        <p className="text-center text-xs text-gray-400 mb-1">
           Marcador exacto = 3 pts · Solo ganador = 1 pt
+        </p>
+        <p className="text-center text-xs text-gray-500 mb-4">
+          {formatMatchLocalDateTime(match)}{match.city ? ` · ${match.city}` : ''}
         </p>
 
         {/* Equipos */}

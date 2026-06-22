@@ -3,9 +3,11 @@ import useStore from '../store';
 import { GROUPS, PHASES } from '../data/matches';
 import MatchCard from '../components/matches/MatchCard';
 import PredictionModal from '../components/predictions/PredictionModal';
+import { isMatchToday, isMatchLive } from '../utils/scoring';
 
 const PHASES_FILTER = [
   { key: 'all', label: 'Todos' },
+  { key: 'today', label: '📅 Hoy' },
   { key: 'live', label: '🔴 En Vivo' },
   { key: 'group', label: 'Grupos' },
   { key: 'r32', label: 'Ronda 32' },
@@ -25,11 +27,25 @@ export default function Partidos() {
 
   const filtered = useMemo(() => {
     let list = matches;
-    if (phaseFilter === 'live') list = list.filter(m => m.status === 'live');
-    else if (phaseFilter !== 'all') list = list.filter(m => m.phase === phaseFilter);
+    
+    // Filtro especial para "Hoy" - usa fecha local del usuario
+    if (phaseFilter === 'today') {
+      list = list.filter(m => isMatchToday(m));
+    }
+    // Filtro para "En Vivo"
+    else if (phaseFilter === 'live') {
+      list = list.filter(m => isMatchLive(m));
+    }
+    // Filtros por fase
+    else if (phaseFilter !== 'all') {
+      list = list.filter(m => m.phase === phaseFilter);
+    }
+    
+    // Filtro adicional por grupo (solo cuando se filtra por fase de grupos)
     if (groupFilter !== 'all' && phaseFilter === 'group') {
       list = list.filter(m => m.group === groupFilter);
     }
+    
     return list;
   }, [matches, phaseFilter, groupFilter]);
 
@@ -89,8 +105,15 @@ export default function Partidos() {
         </div>
       )}
 
-      {/* Contador */}
-      <p className="text-sm text-gray-500">{filtered.length} partido{filtered.length !== 1 ? 's' : ''}</p>
+      {/* Contador y nota informativa */}
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-gray-500">{filtered.length} partido{filtered.length !== 1 ? 's' : ''}</p>
+        {phaseFilter === 'today' && filtered.length > 0 && (
+          <p className="text-xs text-gray-600 italic">
+            ⏰ Horarios en tu hora local
+          </p>
+        )}
+      </div>
 
       {/* Lista de partidos */}
       {phaseFilter === 'group' && groupFilter === 'all' ? (

@@ -12,7 +12,7 @@ async function sbFetchAll() {
   ]);
 
   const users = (usersRes.data || []).map(u => ({
-    id: u.id, name: u.name, avatar: u.avatar, createdAt: u.created_at,
+    id: u.id, name: u.name, avatar: u.avatar, createdAt: u.created_at, points: u.points ?? 0,
   }));
 
   const predictions = (predsRes.data || []).map(p => ({
@@ -49,6 +49,7 @@ const useStore = create(
           id: `u-${Date.now()}`,
           name: name.trim(),
           avatar,
+          points: 0,
           createdAt: new Date().toISOString(),
         };
 

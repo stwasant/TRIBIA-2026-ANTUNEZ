@@ -8,7 +8,20 @@ create table if not exists public.users (
   id text primary key,
   name text not null,
   avatar text not null default '⚽',
+  points integer not null default 0,
   created_at timestamptz not null default now()
+);
+
+-- Si la tabla ya existía, agrega la columna de puntos base:
+alter table public.users add column if not exists points integer not null default 0;
+
+-- Tabla de resultados de partidos (debe ir primero para las FK)
+create table if not exists public.match_results (
+  match_id text primary key,
+  home_score integer not null,
+  away_score integer not null,
+  status text not null default 'finished',
+  updated_at timestamptz not null default now()
 );
 
 -- Tabla de pronósticos
@@ -23,14 +36,12 @@ create table if not exists public.predictions (
   unique(user_id, match_id)
 );
 
--- Tabla de resultados de partidos
-create table if not exists public.match_results (
-  match_id text primary key,
-  home_score integer not null,
-  away_score integer not null,
-  status text not null default 'finished',
-  updated_at timestamptz not null default now()
-);
+-- =====================================================
+-- ÍNDICES para mejorar performance
+-- =====================================================
+create index if not exists idx_predictions_user_id on public.predictions(user_id);
+create index if not exists idx_predictions_match_id on public.predictions(match_id);
+create index if not exists idx_predictions_user_match on public.predictions(user_id, match_id);
 
 -- Acceso público de lectura (anon key puede leer todo)
 alter table public.users enable row level security;

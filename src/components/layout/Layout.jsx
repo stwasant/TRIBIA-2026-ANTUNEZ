@@ -7,12 +7,16 @@ export default function Layout({ children }) {
   const { users, currentUserId, setCurrentUser } = useStore();
   const currentUser = users.find(u => u.id === currentUserId);
 
+  // El enlace Admin se oculta del menú; solo aparece tras desbloquear con PIN
+  const adminUnlocked =
+    typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tribia-admin-unlocked') === '1';
+
   const navLinks = [
     { to: '/', label: '🏆 Ranking', exact: true },
     { to: '/partidos', label: '⚽ Partidos' },
     { to: '/pronosticos', label: '🎯 Pronósticos' },
     { to: '/usuarios', label: '👥 Usuarios' },
-    { to: '/admin', label: '⚙️ Admin' },
+    ...(adminUnlocked ? [{ to: '/admin', label: '⚙️ Admin' }] : []),
   ];
 
   const isActive = (to, exact) =>

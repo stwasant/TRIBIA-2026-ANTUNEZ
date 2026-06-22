@@ -1,12 +1,12 @@
-import { calcularPuntos } from '../../utils/scoring';
-import { formatFecha } from '../../utils/scoring';
+import { calcularPuntos, formatMatchLocalDate, formatMatchLocalTime, disponibleParaPronosticar, isMatchLive } from '../../utils/scoring';
 import { PHASES } from '../../data/matches';
 
 export default function MatchCard({ match, prediction, onPredict, showPrediction = true, compact = false }) {
   const isFinished = match.status === 'finished';
-  const isLive = match.status === 'live';
+  const isLive = isMatchLive(match);
   const hasResult = match.homeScore !== null && match.awayScore !== null;
   const hasPrediction = prediction && prediction.homeScore !== null;
+  const canPredict = disponibleParaPronosticar(match);
 
   const points = hasPrediction && hasResult
     ? calcularPuntos(prediction.homeScore, prediction.awayScore, match.homeScore, match.awayScore)
@@ -63,8 +63,10 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
           )}
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-400">{formatFecha(match.date)}</div>
-          <div className="text-xs text-gray-500">{match.time} · {match.city}</div>
+          <div className="text-xs text-gray-400">{formatMatchLocalDate(match)}</div>
+          <div className="text-xs text-gray-500">
+            {isFinished ? 'Finalizado' : isLive ? 'En juego' : formatMatchLocalTime(match)} · {match.city}
+          </div>
         </div>
       </div>
 
@@ -86,7 +88,7 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
             <div className="text-gray-600 font-bold text-lg">vs</div>
           )}
           {!hasResult && !isLive && (
-            <div className="text-xs text-gray-500 mt-1">{match.time}</div>
+            <div className="text-xs text-gray-500 mt-1">{formatMatchLocalTime(match)}</div>
           )}
         </div>
 
@@ -110,7 +112,7 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
               </div>
               <div className="flex items-center gap-2">
                 {pointsBadge()}
-                {match.status === 'scheduled' && onPredict && (
+                {canPredict && onPredict && (
                   <button
                     onClick={() => onPredict(match)}
                     className="text-xs text-gray-400 hover:text-white underline"
@@ -123,7 +125,7 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
           ) : (
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Sin pronóstico</span>
-              {match.status === 'scheduled' && onPredict && (
+              {canPredict && onPredict && (
                 <button
                   onClick={() => onPredict(match)}
                   className="btn-primary text-xs py-1.5 px-3"
@@ -131,7 +133,7 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
                   Pronosticar
                 </button>
               )}
-              {match.status !== 'scheduled' && (
+              {!canPredict && (
                 <span className="text-xs text-gray-600">Partido cerrado</span>
               )}
             </div>
