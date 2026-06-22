@@ -2,10 +2,10 @@ import { useState, useMemo } from 'react';
 import useStore from '../store';
 import { GROUPS } from '../data/matches';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { formatMatchLocalDate, formatMatchLocalTime } from '../utils/scoring';
+import { formatMatchLocalDate, formatMatchLocalTime, isMatchLive } from '../utils/scoring';
 
 export default function Admin() {
-  const { getAllMatches, setMatchResult, clearMatchResult, exportData, importHistoricalData, clearAll } = useStore();
+  const { getAllMatches, setMatchResult, setLiveScore, clearMatchResult, exportData, importHistoricalData, clearAll } = useStore();
   const matches = getAllMatches();
 
   const [tab, setTab] = useState('results');
@@ -56,13 +56,18 @@ export default function Admin() {
     }));
   };
 
-  const handleSaveResult = (matchId) => {
+  const handleSaveResult = (match) => {
+    const matchId = match.id;
     const scores = editScores[matchId];
     if (!scores) return;
     const h = parseInt(scores.home ?? '');
     const a = parseInt(scores.away ?? '');
     if (!isNaN(h) && !isNaN(a) && h >= 0 && a >= 0) {
-      setMatchResult(matchId, h, a);
+      if (isMatchLive(match)) {
+        setLiveScore(matchId, h, a);
+      } else {
+        setMatchResult(matchId, h, a);
+      }
     }
   };
 
@@ -151,7 +156,7 @@ export default function Admin() {
             placeholder="–"
           />
           <button
-            onClick={() => handleSaveResult(match.id)}
+            onClick={() => handleSaveResult(match)}
             className="bg-green-700 hover:bg-green-600 text-white text-xs px-2 py-1 rounded transition-colors"
           >
             ✓

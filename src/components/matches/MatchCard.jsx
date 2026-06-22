@@ -81,7 +81,7 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
         {/* Marcador */}
         <div className="text-center min-w-[80px]">
           {hasResult ? (
-            <div className={`text-2xl font-black ${isFinished ? 'text-white' : 'text-red-400'}`}>
+            <div className={`text-2xl font-black ${isFinished ? 'text-white' : 'text-red-400 animate-pulse'}`}>
               {match.homeScore} – {match.awayScore}
             </div>
           ) : (

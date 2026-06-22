@@ -123,9 +123,13 @@ export default function Home() {
                   </td>
                   {todayPredictions.map(({ match }) => (
                     <td key={match.id} className="text-center p-2">
-                      {match.status === 'finished' ? (
-                        <span className="font-bold text-green-400">
-                          {match.homeScore}–{match.awayScore}
+                      {match.homeScore !== null && match.awayScore !== null ? (
+                        <span className={`font-bold ${
+                          match.status === 'finished'
+                            ? 'text-green-400'
+                            : 'text-red-400 animate-pulse'
+                        }`}>
+                          {match.status !== 'finished' && '🔴 '}{match.homeScore}–{match.awayScore}
                         </span>
                       ) : (
                         <span className="text-gray-600">-</span>

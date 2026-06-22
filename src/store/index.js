@@ -84,6 +84,24 @@ const useStore = create(
       // ─── Resultados de partidos ─────────────────────────────
       matchResults: {},
 
+      setLiveScore: async (matchId, homeScore, awayScore) => {
+        if (isSupabaseConfigured) {
+          await supabase.from('match_results').upsert({
+            match_id: matchId,
+            home_score: homeScore,
+            away_score: awayScore,
+            status: 'live',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'match_id' });
+        }
+        set(state => ({
+          matchResults: {
+            ...state.matchResults,
+            [matchId]: { homeScore, awayScore, status: 'live' },
+          },
+        }));
+      },
+
       setMatchResult: async (matchId, homeScore, awayScore) => {
         if (isSupabaseConfigured) {
           await supabase.from('match_results').upsert({
