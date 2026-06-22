@@ -80,7 +80,6 @@ export default function Home() {
             <div className="text-gray-500 text-xs hover:text-white">Participantes</div>
           </Link>
         </div>
-        </div>
       </div>
 
       {/* Pronósticos de Hoy */}
