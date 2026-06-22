@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
+import Hoy from './pages/Hoy';
 import Partidos from './pages/Partidos';
 import Pronosticos from './pages/Pronosticos';
 import Usuarios from './pages/Usuarios';
@@ -31,6 +32,7 @@ export default function App() {
         )}
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/hoy" element={<Hoy />} />
           <Route path="/partidos" element={<Partidos />} />
           <Route path="/pronosticos" element={<Pronosticos />} />
           <Route path="/usuarios" element={<Usuarios />} />

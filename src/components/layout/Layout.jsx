@@ -13,6 +13,7 @@ export default function Layout({ children }) {
 
   const navLinks = [
     { to: '/', label: '🏆 Ranking', exact: true },
+    { to: '/hoy', label: '📅 Hoy' },
     { to: '/partidos', label: '⚽ Partidos' },
     { to: '/pronosticos', label: '🎯 Pronósticos' },
     { to: '/usuarios', label: '👥 Usuarios' },
