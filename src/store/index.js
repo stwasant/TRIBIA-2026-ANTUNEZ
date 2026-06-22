@@ -128,17 +128,6 @@ const useStore = create(
         const { currentUserId } = get();
         if (!currentUserId) return;
 
-        // Verificar permisos: solo el dueño o admin pueden editar
-        const adminUnlocked = sessionStorage.getItem('tribia-admin-unlocked') === 'true';
-        if (!adminUnlocked) {
-          // Sin admin, solo puedes editar tus pronósticos
-          const firstUserId = get().users[0]?.id;
-          if (currentUserId !== firstUserId && !adminUnlocked) {
-            console.warn('❌ No tienes permiso para editar este pronóstico');
-            return;
-          }
-        }
-
         const now = new Date().toISOString();
         const existing = get().predictions.find(
           p => p.userId === currentUserId && p.matchId === matchId
