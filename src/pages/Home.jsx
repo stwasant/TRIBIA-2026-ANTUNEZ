@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario, isMatchToday, isMatchLive, formatMatchLocalTime } from '../utils/scoring';
+import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime } from '../utils/scoring';
 
 export default function Home() {
   const { users, predictions, getAllMatches } = useStore();
@@ -141,11 +141,21 @@ export default function Home() {
                 
                 {/* Filas de usuarios */}
                 {users.map(user => {
-                  const userPredictionsToday = todayPredictions.map(({ match }) => {
-                    return predictions.find(p => p.userId === user.id && p.matchId === match.id);
+                  // Calcular puntos del día para este usuario
+                  let ptsHoy = 0;
+                  let hasPredictions = false;
+                  const matchPts = todayPredictions.map(({ match }) => {
+                    const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
+                    if (!pred) return { pred: null, pts: null };
+                    hasPredictions = true;
+                    const hasResult = match.homeScore !== null && match.awayScore !== null;
+                    const pts = hasResult
+                      ? calcularPuntos(pred.homeScore, pred.awayScore, match.homeScore, match.awayScore)
+                      : null;
+                    if (pts !== null) ptsHoy += pts;
+                    return { pred, pts };
                   });
-                  const hasPredictions = userPredictionsToday.some(p => p);
-                  
+
                   return (
                     <tr key={user.id} className={`border-b border-gray-800 hover:bg-gray-900/30 transition-colors ${hasPredictions ? 'bg-yellow-950/10' : ''}`}>
                       <td className="p-2 sticky left-0 bg-[#1a1f2e] z-10">
@@ -156,13 +166,19 @@ export default function Home() {
                           </span>
                         </div>
                       </td>
-                      {todayPredictions.map(({ match }) => {
-                        const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
+                      {matchPts.map(({ pred, pts }, i) => {
+                        const match = todayPredictions[i].match;
+                        const colorClass = pts === 3 ? 'text-green-400' :
+                                          pts === 1 ? 'text-blue-400' :
+                                          pts === 0 ? 'text-red-400' : 'text-white';
                         return (
                           <td key={match.id} className="text-center p-2">
                             {pred ? (
-                              <span className="font-bold text-white">
+                              <span className={`font-bold ${colorClass}`}>
                                 {pred.homeScore}–{pred.awayScore}
+                                {pts === 3 && ' 🎯'}
+                                {pts === 1 && ' ✅'}
+                                {pts === 0 && ' ❌'}
                               </span>
                             ) : (
                               <span className="text-gray-600">-</span>
@@ -170,8 +186,11 @@ export default function Home() {
                           </td>
                         );
                       })}
-                      <td className="text-center p-2 text-yellow-400 font-bold">
-                        -
+                      <td className="text-center p-2 font-bold">
+                        {hasPredictions
+                          ? <span className={ptsHoy > 0 ? 'text-yellow-400' : 'text-gray-500'}>{ptsHoy} pts</span>
+                          : <span className="text-gray-600">-</span>
+                        }
                       </td>
                     </tr>
                   );
