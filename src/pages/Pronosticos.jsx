@@ -28,6 +28,7 @@ export default function Pronosticos() {
         if (filter === 'finished') return m.status === 'finished';
         return true;
       })
+      .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff))
       .map(m => ({
         match: m,
         prediction: predictions.find(p => p.matchId === m.id) || null,
