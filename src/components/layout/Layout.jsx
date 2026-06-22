@@ -32,7 +32,7 @@ export default function Layout({ children }) {
             <Link to="/" className="flex items-center gap-2">
               <span className="text-2xl">⚽</span>
               <div>
-                <div className="text-yellow-400 font-bold text-lg leading-tight">TRIBIA 2026</div>
+                <div className="text-yellow-400 font-bold text-lg leading-tight">Quinela Familia Antúnez 2026</div>
                 <div className="text-gray-400 text-xs">Pronósticos Mundial</div>
               </div>
             </Link>
@@ -108,7 +108,7 @@ export default function Layout({ children }) {
 
       {/* Footer */}
       <footer className="bg-gray-900 border-t border-gray-800 py-4 text-center text-gray-500 text-xs">
-        ⚽ Tribia 2026 · Pronósticos Mundial de Fútbol · Antunez Family
+        ⚽ Quinela Familia Antúnez 2026 · Pronósticos Mundial de Fútbol
       </footer>
     </div>
   );
