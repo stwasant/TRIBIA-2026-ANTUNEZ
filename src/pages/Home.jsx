@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario, isMatchToday, isMatchLive } from '../utils/scoring';
+import { calcularTotalUsuario, isMatchToday, isMatchLive, formatMatchLocalTime } from '../utils/scoring';
 
 export default function Home() {
   const { users, predictions, getAllMatches } = useStore();
@@ -27,6 +27,25 @@ export default function Home() {
   const finishedMatches = matches.filter(m => m.status === 'finished').length;
   const upcomingMatches = matches.filter(m => m.status === 'scheduled').length;
   const liveMatches = matches.filter(m => isMatchLive(m)).length;
+
+  // Pronósticos de hoy por partido
+  const todayPredictions = useMemo(() => {
+    const today = matches.filter(m => isMatchToday(m));
+    return today.map(match => {
+      const userPreds = users.map(user => {
+        const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
+        return {
+          user,
+          prediction: pred || null,
+        };
+      });
+      return {
+        match,
+        userPredictions: userPreds,
+        totalPredicted: userPreds.filter(up => up.prediction).length,
+      };
+    });
+  }, [matches, users, predictions]);
 
   return (
     <div className="space-y-6">
@@ -62,6 +81,66 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      {/* Pronósticos de Hoy */}
+      {todayPredictions.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+            <span>📅</span> Pronósticos de Hoy
+          </h2>
+
+          <div className="space-y-3">
+            {todayPredictions.map(({ match, userPredictions, totalPredicted }) => (
+              <div key={match.id} className="card">
+                {/* Cabecera del partido */}
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-800">
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="text-center flex-1">
+                      <div className="text-2xl mb-1">{match.homeFlag}</div>
+                      <div className="text-xs font-medium text-white">{match.home}</div>
+                    </div>
+                    <div className="text-center px-2">
+                      <div className="text-gray-500 text-sm font-bold">vs</div>
+                      <div className="text-xs text-gray-600">{formatMatchLocalTime(match)}</div>
+                    </div>
+                    <div className="text-center flex-1">
+                      <div className="text-2xl mb-1">{match.awayFlag}</div>
+                      <div className="text-xs font-medium text-white">{match.away}</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 ml-3">
+                    {totalPredicted}/{users.length} pronosticaron
+                  </div>
+                </div>
+
+                {/* Lista de pronósticos por usuario */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {userPredictions.map(({ user, prediction }) => (
+                    <div
+                      key={user.id}
+                      className={`text-center p-2 rounded-lg border transition-colors ${
+                        prediction
+                          ? 'bg-yellow-950/30 border-yellow-900/50'
+                          : 'bg-gray-800/30 border-gray-800'
+                      }`}
+                    >
+                      <div className="text-xl mb-1">{user.avatar}</div>
+                      <div className="text-xs text-gray-400 truncate mb-1">{user.name}</div>
+                      {prediction ? (
+                        <div className="text-sm font-bold text-yellow-400">
+                          {prediction.homeScore}–{prediction.awayScore}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-600">Sin pronóstico</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabla de posiciones */}
       <div>
