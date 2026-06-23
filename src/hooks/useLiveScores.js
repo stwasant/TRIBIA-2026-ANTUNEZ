@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import useStore from '../store';
-import { isMatchToday } from '../utils/scoring';
 import { fetchTodayScores, isFootballDataConfigured } from '../lib/footballData';
 
 // 90 seconds: safe for free tier (10 req/min) with up to ~8 concurrent users
@@ -16,12 +15,10 @@ export function useLiveScores() {
       // Access store directly to always get fresh state without stale closures
       const { getAllMatches, setMatchResult, setLiveScore } = useStore.getState();
       const allMatches = getAllMatches();
-      const todayMatches = allMatches.filter(m => isMatchToday(m));
-
-      // Skip polling if no matches today
-      if (todayMatches.length === 0) return;
-
-      const results = await fetchTodayScores(todayMatches);
+      
+      // Pass all matches - fetchTodayScores will handle filtering by date range
+      // (it queries ESPN for yesterday, today, and tomorrow)
+      const results = await fetchTodayScores(allMatches);
 
       for (const { matchId, homeScore, awayScore, status } of results) {
         if (status === 'FINISHED') {
