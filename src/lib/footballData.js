@@ -129,59 +129,71 @@ function mapStatus(espnStatus) {
  * @returns {Promise<Array>} - array of { matchId, homeScore, awayScore, status, minute }
  */
 export async function fetchTodayScores(localMatches) {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  // Fetch yesterday, today, and tomorrow to handle timezone differences
+  const today = new Date();
+  const dates = [
+    new Date(today.getTime() - 24*60*60*1000),  // yesterday
+    today,                                        // today
+    new Date(today.getTime() + 24*60*60*1000),  // tomorrow
+  ].map(d => d.toISOString().slice(0, 10).replace(/-/g, ''));
 
-  try {
-    const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
+  const results = [];
 
-    if (!res.ok) {
-      console.warn('[LiveScores] ESPN error:', res.status);
-      return [];
-    }
+  for (const dateStr of dates) {
+    try {
+      const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
 
-    const data = await res.json();
-    const results = [];
-
-    for (const event of (data.events || [])) {
-      const competition = event.competitions?.[0];
-      if (!competition) continue;
-
-      const homeComp = competition.competitors?.find(c => c.homeAway === 'home');
-      const awayComp = competition.competitors?.find(c => c.homeAway === 'away');
-      if (!homeComp || !awayComp) continue;
-
-      const homeApi = homeComp.team?.displayName || homeComp.team?.name || '';
-      const awayApi = awayComp.team?.displayName || awayComp.team?.name || '';
-      const apiKickoff = new Date(event.date).getTime();
-
-      console.log(`[ESPN] ${homeApi} vs ${awayApi} @ ${new Date(apiKickoff).toISOString()}`);
-      const localMatch = findLocalMatch(homeApi, awayApi, apiKickoff, localMatches);
-      if (!localMatch) {
-        console.log(`  ❌ No local match found`);
+      if (!res.ok) {
+        console.warn(`[LiveScores] ESPN error for ${dateStr}:`, res.status);
         continue;
       }
-      console.log(`  ✓ Matched: ${localMatch.id} (${localMatch.home} vs ${localMatch.away})`);
 
-      const statusName = event.status?.type?.name || '';
-      const status = mapStatus(statusName);
-      if (status === 'SCHEDULED') continue; // No scores to update
+      const data = await res.json();
 
-      const homeScore = parseInt(homeComp.score, 10);
-      const awayScore = parseInt(awayComp.score, 10);
-      if (isNaN(homeScore) || isNaN(awayScore)) continue;
+      for (const event of (data.events || [])) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
 
-      results.push({
-        matchId: localMatch.id,
-        homeScore,
-        awayScore,
-        status,
-        minute: event.status?.displayClock || '',
-      });
+        const homeComp = competition.competitors?.find(c => c.homeAway === 'home');
+        const awayComp = competition.competitors?.find(c => c.homeAway === 'away');
+        if (!homeComp || !awayComp) continue;
+
+        const homeApi = homeComp.team?.displayName || homeComp.team?.name || '';
+        const awayApi = awayComp.team?.displayName || awayComp.team?.name || '';
+        const apiKickoff = new Date(event.date).getTime();
+
+        console.log(`[ESPN ${dateStr}] ${homeApi} vs ${awayApi} @ ${new Date(apiKickoff).toISOString()}`);
+        const localMatch = findLocalMatch(homeApi, awayApi, apiKickoff, localMatches);
+        if (!localMatch) {
+          console.log(`  ❌ No local match found`);
+          continue;
+        }
+        console.log(`  ✓ Matched: ${localMatch.id} (${localMatch.home} vs ${localMatch.away})`);
+
+        const statusName = event.status?.type?.name || '';
+        const status = mapStatus(statusName);
+        if (status === 'SCHEDULED') continue; // No scores to update
+
+        const homeScore = parseInt(homeComp.score, 10);
+        const awayScore = parseInt(awayComp.score, 10);
+        if (isNaN(homeScore) || isNaN(awayScore)) continue;
+
+        // Avoid duplicates
+        const existing = results.find(r => r.matchId === localMatch.id);
+        if (existing) continue;
+
+        results.push({
+          matchId: localMatch.id,
+          homeScore,
+          awayScore,
+          status,
+          minute: event.status?.displayClock || '',
+        });
+      }
+    } catch (err) {
+      console.warn(`[LiveScores] ESPN fetch failed for ${dateStr}:`, err.message);
     }
-
-    return results;
-  } catch (err) {
-    console.warn('[LiveScores] ESPN fetch failed:', err.message);
-    return [];
   }
+
+  return results;
 }
