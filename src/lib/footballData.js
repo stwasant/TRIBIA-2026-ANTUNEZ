@@ -56,6 +56,8 @@ const ES_TO_EN = {
   'Guinea': 'Guinea',
   'Cabo Verde': 'Cape Verde',
   'Nueva Zelanda': 'New Zealand',
+  'Senegal': 'Senegal',
+  'Iraq': 'Iraq',
 };
 
 // Reverse: English → Spanish
@@ -70,11 +72,18 @@ function normalize(name) {
 
 function resolveTeam(apiName) {
   const lower = (apiName || '').toLowerCase();
-  if (EN_TO_ES[lower]) return EN_TO_ES[lower];
+  if (EN_TO_ES[lower]) {
+    console.log(`    Resolved ${apiName} → ${EN_TO_ES[lower]} (direct)`);
+    return EN_TO_ES[lower];
+  }
   const normKey = normalize(apiName);
   for (const [en, es] of Object.entries(ES_TO_EN)) {
-    if (normalize(en) === normKey) return es;
+    if (normalize(en) === normKey) {
+      console.log(`    Resolved ${apiName} → ${es} (normalized)`);
+      return es;
+    }
   }
+  console.log(`    Resolved ${apiName} → ${apiName} (no mapping)`);
   return apiName;
 }
 
@@ -82,9 +91,9 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
   const homeEs = resolveTeam(homeApi);
   const awayEs = resolveTeam(awayApi);
 
-  // Filter by kickoff time (±5 min tolerance)
+  // Filter by kickoff time (±24h tolerance to handle timezone/scheduling differences)
   const byTime = localMatches.filter(m =>
-    Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= 5 * 60 * 1000
+    Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= 24 * 60 * 60 * 1000
   );
 
   if (byTime.length === 0) return null;
@@ -138,8 +147,13 @@ export async function fetchTodayScores(localMatches) {
       const awayApi = awayComp.team?.displayName || awayComp.team?.name || '';
       const apiKickoff = new Date(event.date).getTime();
 
+      console.log(`[ESPN] ${homeApi} vs ${awayApi} @ ${new Date(apiKickoff).toISOString()}`);
       const localMatch = findLocalMatch(homeApi, awayApi, apiKickoff, localMatches);
-      if (!localMatch) continue;
+      if (!localMatch) {
+        console.log(`  ❌ No local match found`);
+        continue;
+      }
+      console.log(`  ✓ Matched: ${localMatch.id} (${localMatch.home} vs ${localMatch.away})`);
 
       const statusName = event.status?.type?.name || '';
       const status = mapStatus(statusName);
