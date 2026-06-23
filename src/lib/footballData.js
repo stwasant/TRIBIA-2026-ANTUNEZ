@@ -13,15 +13,23 @@ const ES_TO_EN = {
   'Canadá': 'Canada',
   'Suiza': 'Switzerland',
   'Bosnia y Herzegovina': 'Bosnia and Herzegovina',
+  'Qatar': 'Qatar',
+  'RD del Congo': 'Congo DR',
+  'Inglaterra': 'England',
+  'Ghana': 'Ghana',
+  'Portugal': 'Portugal',
   'Brasil': 'Brazil',
   'Marruecos': 'Morocco',
   'Haití': 'Haiti',
   'Escocia': 'Scotland',
   'Estados Unidos': 'United States',
+  'Australia': 'Australia',
   'Turquía': 'Turkey',
+  'Paraguay': 'Paraguay',
   'Alemania': 'Germany',
   'Curazao': 'Curacao',
   'Costa de Marfil': 'Ivory Coast',
+  'Ecuador': 'Ecuador',
   'Francia': 'France',
   'Noruega': 'Norway',
   'Argelia': 'Algeria',
@@ -58,13 +66,22 @@ const ES_TO_EN = {
   'Nueva Zelanda': 'New Zealand',
   'Senegal': 'Senegal',
   'Iraq': 'Iraq',
+  'Argentina': 'Argentina',
+  'Austria': 'Austria',
+  'Uruguay': 'Uruguay',
+  'Suecia': 'Sweden',
 };
 
-// Reverse: English → Spanish
+// Reverse: English → Spanish  
 const EN_TO_ES = {};
 for (const [es, en] of Object.entries(ES_TO_EN)) {
   EN_TO_ES[en.toLowerCase()] = es;
 }
+// Add alternative ESPN names
+EN_TO_ES['czechia'] = 'Chequia';
+EN_TO_ES['korea republic'] = 'Corea del Sur';
+EN_TO_ES['south korea'] = 'Corea del Sur';
+EN_TO_ES['bosnia-herzegovina'] = 'Bosnia y Herzegovina';
 
 function normalize(name) {
   return (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
