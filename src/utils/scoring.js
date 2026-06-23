@@ -140,6 +140,8 @@ const MATCH_WINDOW_MS = 135 * 60 * 1000; // ~2h15m
 // flag estático que no expira). Un partido finalizado nunca está en vivo.
 export function isMatchLive(match) {
   if (match?.status === 'finished') return false;
+  // Si el status es 'live' (de ESPN), confiar en eso
+  if (match?.status === 'live') return true;
   const d = getMatchKickoff(match);
   if (!d) return false;
   const start = d.getTime();
