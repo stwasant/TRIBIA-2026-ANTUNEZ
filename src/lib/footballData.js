@@ -97,12 +97,19 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
   );
 
   if (byTime.length === 0) return null;
-  if (byTime.length === 1) return byTime[0];
 
-  // Same kickoff time → disambiguate by home team
-  return byTime.find(m =>
-    m.home === homeEs || normalize(m.home) === normalize(homeEs)
-  ) || byTime[0];
+  // Find match where BOTH teams match (home AND away)
+  const exactMatch = byTime.find(m => {
+    const homeMatch = m.home === homeEs || normalize(m.home) === normalize(homeEs);
+    const awayMatch = m.away === awayEs || normalize(m.away) === normalize(awayEs);
+    return homeMatch && awayMatch;
+  });
+
+  if (exactMatch) return exactMatch;
+
+  // No exact match found - don't return a wrong match
+  console.log(`  ⚠️ No exact team match found for ${homeEs} vs ${awayEs}`);
+  return null;
 }
 
 // Map ESPN status strings to our internal status
