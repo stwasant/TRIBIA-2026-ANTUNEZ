@@ -82,6 +82,8 @@ EN_TO_ES['czechia'] = 'Chequia';
 EN_TO_ES['korea republic'] = 'Corea del Sur';
 EN_TO_ES['south korea'] = 'Corea del Sur';
 EN_TO_ES['bosnia-herzegovina'] = 'Bosnia y Herzegovina';
+EN_TO_ES['curaçao'] = 'Curazao';  // ESPN usa ç
+EN_TO_ES['türkiye'] = 'Turquía';  // Nombre oficial turco en ESPN
 
 function normalize(name) {
   return (name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
