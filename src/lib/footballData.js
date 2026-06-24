@@ -137,6 +137,8 @@ function mapStatus(espnStatus) {
     case 'STATUS_FINAL':        return 'FINISHED';
     case 'STATUS_FULL_TIME':    return 'FINISHED';
     case 'STATUS_IN_PROGRESS':  return 'IN_PLAY';
+    case 'STATUS_FIRST_HALF':   return 'IN_PLAY';
+    case 'STATUS_SECOND_HALF':  return 'IN_PLAY';
     case 'STATUS_HALFTIME':     return 'PAUSED';
     default:                    return 'SCHEDULED';
   }
