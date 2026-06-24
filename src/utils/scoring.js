@@ -63,9 +63,16 @@ export function partidoPasado(match) {
 
 // Determina si el partido está disponible para pronosticar.
 // Se puede pronosticar mientras NO haya comenzado (según el reloj local del usuario)
-// y no esté en vivo ni finalizado.
-export function disponibleParaPronosticar(match) {
+// y no esté en vivo ni finalizado. El admin puede editar incluso partidos cerrados.
+export function disponibleParaPronosticar(match, isAdmin = false) {
+  // Admin puede editar cualquier pronóstico
+  if (isAdmin) return true;
   return match.status === 'scheduled' && !hasMatchStarted(match);
+}
+
+// Verifica si el usuario actual es admin (desbloqueó el panel admin)
+export function isAdminUnlocked() {
+  return sessionStorage.getItem('tribia-admin-unlocked') === '1';
 }
 
 // ==========================================

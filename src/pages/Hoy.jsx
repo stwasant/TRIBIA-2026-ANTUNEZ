@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
 import PredictionModal from '../components/predictions/PredictionModal';
-import { calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar } from '../utils/scoring';
+import { calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked } from '../utils/scoring';
 
 function isMatchTomorrow(match) {
   if (!match?.kickoff) return false;
@@ -21,6 +21,7 @@ export default function Hoy() {
   const matches = getAllMatches();
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [tab, setTab] = useState('hoy'); // 'hoy' | 'manana'
+  const isAdmin = isAdminUnlocked();
 
   const todayMatches = useMemo(() =>
     matches.filter(m => isMatchToday(m)).sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
@@ -136,7 +137,7 @@ export default function Hoy() {
               </div>
 
               {/* Botón pronosticar si el usuario actual no ha pronosticado */}
-              {currentUserId && disponibleParaPronosticar(match) && (
+              {currentUserId && disponibleParaPronosticar(match, isAdmin) && (
                 <button
                   onClick={() => setSelectedMatch(match)}
                   className={`shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors ${

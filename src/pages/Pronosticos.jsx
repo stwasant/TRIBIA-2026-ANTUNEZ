@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import useStore from '../store';
 import MatchCard from '../components/matches/MatchCard';
 import PredictionModal from '../components/predictions/PredictionModal';
-import { calcularPuntos, disponibleParaPronosticar } from '../utils/scoring';
+import { calcularPuntos, disponibleParaPronosticar, isAdminUnlocked } from '../utils/scoring';
 
 export default function Pronosticos() {
   const { getAllMatches, getPrediction, getUserPredictions, setPrediction, currentUserId, users } = useStore();
@@ -12,6 +12,7 @@ export default function Pronosticos() {
   const [filter, setFilter] = useState('all');
   const [viewUserId, setViewUserId] = useState(null);
   const adminUnlocked = sessionStorage.getItem('tribia-admin-unlocked') === 'true';
+  const isAdmin = isAdminUnlocked();
 
   const activeUserId = viewUserId || currentUserId;
   const predictions = getUserPredictions(activeUserId);
@@ -24,7 +25,7 @@ export default function Pronosticos() {
       .filter(m => {
         const pred = predictions.find(p => p.matchId === m.id);
         if (filter === 'predicted') return !!pred;
-        if (filter === 'unpredicted') return !pred && disponibleParaPronosticar(m);
+        if (filter === 'unpredicted') return !pred && disponibleParaPronosticar(m, isAdmin);
         if (filter === 'finished') return m.status === 'finished';
         return true;
       })
@@ -50,7 +51,7 @@ export default function Pronosticos() {
   }, [predictions, matches, activeUser]);
 
   const scheduledWithoutPred = matches.filter(
-    m => disponibleParaPronosticar(m) && !predictions.find(p => p.matchId === m.id)
+    m => disponibleParaPronosticar(m, isAdmin) && !predictions.find(p => p.matchId === m.id)
   ).length;
 
   if (!currentUserId && !viewUserId) {

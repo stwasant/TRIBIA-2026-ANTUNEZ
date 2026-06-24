@@ -1,4 +1,4 @@
-import { calcularPuntos, formatMatchLocalDate, formatMatchLocalTime, disponibleParaPronosticar, isMatchLive } from '../../utils/scoring';
+import { calcularPuntos, formatMatchLocalDate, formatMatchLocalTime, disponibleParaPronosticar, isMatchLive, isAdminUnlocked } from '../../utils/scoring';
 import { PHASES } from '../../data/matches';
 
 export default function MatchCard({ match, prediction, onPredict, showPrediction = true, compact = false }) {
@@ -6,7 +6,8 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
   const isLive = isMatchLive(match);
   const hasResult = match.homeScore !== null && match.awayScore !== null;
   const hasPrediction = prediction && prediction.homeScore !== null;
-  const canPredict = disponibleParaPronosticar(match);
+  const isAdmin = isAdminUnlocked();
+  const canPredict = disponibleParaPronosticar(match, isAdmin);
 
   const points = hasPrediction && hasResult
     ? calcularPuntos(prediction.homeScore, prediction.awayScore, match.homeScore, match.awayScore)

@@ -1,11 +1,15 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime } from '../utils/scoring';
+import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked } from '../utils/scoring';
+import PredictionModal from '../components/predictions/PredictionModal';
 
 export default function Home() {
-  const { users, predictions, getAllMatches } = useStore();
+  const { users, predictions, getAllMatches, setPrediction, currentUserId } = useStore();
   const matches = getAllMatches();
+  const [editingMatch, setEditingMatch] = useState(null);
+  const [editingUserId, setEditingUserId] = useState(null);
+  const isAdmin = isAdminUnlocked();
 
   const ranking = useMemo(() => {
     return users
@@ -200,8 +204,22 @@ export default function Home() {
                         const colorClass = pts === 3 ? 'text-green-400' :
                                           pts === 1 ? 'text-blue-400' :
                                           pts === 0 ? 'text-red-400' : 'text-white';
+                        const canEdit = (user.id === currentUserId && disponibleParaPronosticar(match, isAdmin)) || 
+                                       (isAdmin && disponibleParaPronosticar(match, true));
+                        const isClickable = canEdit;
+                        
                         return (
-                          <td key={match.id} className="text-center p-2">
+                          <td 
+                            key={match.id} 
+                            className={`text-center p-2 ${isClickable ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''}`}
+                            onClick={() => {
+                              if (isClickable) {
+                                setEditingMatch(match);
+                                setEditingUserId(user.id);
+                              }
+                            }}
+                            title={isClickable ? 'Click para pronosticar' : ''}
+                          >
                             {pred ? (
                               <span className={`font-bold ${colorClass}`}>
                                 {pred.homeScore}–{pred.awayScore}
@@ -210,7 +228,9 @@ export default function Home() {
                                 {pts === 0 && ' ❌'}
                               </span>
                             ) : (
-                              <span className="text-gray-600">-</span>
+                              <span className={isClickable ? 'text-blue-400 hover:text-blue-300' : 'text-gray-600'}>
+                                {isClickable ? '+ Pronosticar' : '-'}
+                              </span>
                             )}
                           </td>
                         );
@@ -328,6 +348,30 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Modal de pronóstico */}
+      {editingMatch && editingUserId && (
+        <PredictionModal
+          match={editingMatch}
+          prediction={predictions.find(p => p.userId === editingUserId && p.matchId === editingMatch.id)}
+          onSave={async (matchId, homeScore, awayScore) => {
+            // Temporalmente cambiar el usuario activo para guardar el pronóstico
+            const originalUser = currentUserId;
+            useStore.getState().setCurrentUser(editingUserId);
+            await setPrediction(matchId, homeScore, awayScore);
+            // Restaurar usuario original
+            if (originalUser) {
+              useStore.getState().setCurrentUser(originalUser);
+            }
+            setEditingMatch(null);
+            setEditingUserId(null);
+          }}
+          onClose={() => {
+            setEditingMatch(null);
+            setEditingUserId(null);
+          }}
+        />
+      )}
     </div>
   );
 }
