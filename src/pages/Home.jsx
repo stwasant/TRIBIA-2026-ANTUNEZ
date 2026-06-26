@@ -90,23 +90,23 @@ export default function Home() {
         <h1 className="text-3xl font-black text-yellow-400 mb-1">QUINELA 2026</h1>
         <p className="text-gray-400 text-sm">Pronósticos · Mundial de Fútbol · USA · México · Canadá</p>
         <div className="flex justify-center gap-6 mt-4 text-sm">
-          <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
+          <Link to="/partidos?filter=finished" className="text-center hover:scale-105 transition-transform cursor-pointer">
             <div className="text-2xl font-bold text-green-400">{finishedMatches}</div>
             <div className="text-gray-500 text-xs hover:text-green-400">Jugados</div>
           </Link>
           {liveMatches > 0 && (
-            <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
+            <Link to="/partidos?filter=live" className="text-center hover:scale-105 transition-transform cursor-pointer">
               <div className="text-2xl font-bold text-red-400 animate-pulse">{liveMatches}</div>
               <div className="text-gray-500 text-xs hover:text-red-400">En vivo 🔴</div>
             </Link>
           )}
           {todayMatches > 0 && (
-            <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
+            <Link to="/partidos?filter=today" className="text-center hover:scale-105 transition-transform cursor-pointer">
               <div className="text-2xl font-bold text-yellow-400">{todayMatches}</div>
               <div className="text-gray-500 text-xs hover:text-yellow-400">Hoy 📅</div>
             </Link>
           )}
-          <Link to="/partidos" className="text-center hover:scale-105 transition-transform cursor-pointer">
+          <Link to="/partidos?filter=upcoming" className="text-center hover:scale-105 transition-transform cursor-pointer">
             <div className="text-2xl font-bold text-blue-400">{upcomingMatches}</div>
             <div className="text-gray-500 text-xs hover:text-blue-400">Por jugar</div>
           </Link>

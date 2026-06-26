@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import useStore from '../store';
 import { GROUPS, PHASES } from '../data/matches';
 import MatchCard from '../components/matches/MatchCard';
@@ -9,6 +10,8 @@ const PHASES_FILTER = [
   { key: 'all', label: 'Todos' },
   { key: 'today', label: '📅 Hoy' },
   { key: 'live', label: '🔴 En Vivo' },
+  { key: 'finished', label: '✅ Jugados' },
+  { key: 'upcoming', label: '⏳ Por Jugar' },
   { key: 'group', label: 'Grupos' },
   { key: 'r32', label: 'Ronda 32' },
   { key: 'r16', label: 'Octavos' },
@@ -20,10 +23,19 @@ const PHASES_FILTER = [
 export default function Partidos() {
   const { getAllMatches, getPrediction, setPrediction, currentUserId } = useStore();
   const matches = getAllMatches();
+  const [searchParams] = useSearchParams();
 
   const [phaseFilter, setPhaseFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
   const [selectedMatch, setSelectedMatch] = useState(null);
+
+  // Leer filtro desde query params al cargar
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam && PHASES_FILTER.some(f => f.key === filterParam)) {
+      setPhaseFilter(filterParam);
+    }
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     let list = matches;
@@ -36,6 +48,14 @@ export default function Partidos() {
     else if (phaseFilter === 'live') {
       list = list.filter(m => isMatchLive(m));
     }
+    // Filtro para "Jugados"
+    else if (phaseFilter === 'finished') {
+      list = list.filter(m => m.status === 'finished');
+    }
+    // Filtro para "Por Jugar"
+    else if (phaseFilter === 'upcoming') {
+      list = list.filter(m => m.status === 'scheduled' && !isMatchLive(m));
+    }
     // Filtros por fase
     else if (phaseFilter !== 'all') {
       list = list.filter(m => m.phase === phaseFilter);
@@ -45,6 +65,26 @@ export default function Partidos() {
     if (groupFilter !== 'all' && phaseFilter === 'group') {
       list = list.filter(m => m.group === groupFilter);
     }
+    
+    // Ordenar por jornada (matchday) ascendente, luego por fecha de inicio
+    list.sort((a, b) => {
+      const hasMatchdayA = a.matchday !== undefined && a.matchday !== null;
+      const hasMatchdayB = b.matchday !== undefined && b.matchday !== null;
+      
+      // Si solo uno tiene matchday, el que tiene va primero
+      if (hasMatchdayA && !hasMatchdayB) return -1;
+      if (!hasMatchdayA && hasMatchdayB) return 1;
+      
+      // Si ambos tienen matchday, comparar por matchday
+      if (hasMatchdayA && hasMatchdayB) {
+        if (a.matchday !== b.matchday) {
+          return a.matchday - b.matchday;
+        }
+      }
+      
+      // Si matchday es igual o ambos no tienen matchday, ordenar por fecha de inicio
+      return new Date(a.kickoff) - new Date(b.kickoff);
+    });
     
     return list;
   }, [matches, phaseFilter, groupFilter]);
