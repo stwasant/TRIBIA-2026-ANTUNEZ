@@ -81,7 +81,31 @@ const useStore = create(
 
       setCurrentUser: (userId) => set({ currentUserId: userId }),
 
-      // ─── Resultados de partidos ─────────────────────────────
+      // ─── Actualizaciones de equipos (R32, etc.) ─────────
+      matchUpdates: {},
+
+      updateMatchTeams: async (updates) => {
+        // updates: [{matchId, home, away, homeFlag, awayFlag}]
+        if (!updates || updates.length === 0) return;
+
+        const newUpdates = { ...get().matchUpdates };
+        updates.forEach(update => {
+          newUpdates[update.matchId] = {
+            home: update.home,
+            away: update.away,
+            homeFlag: update.homeFlag,
+            awayFlag: update.awayFlag,
+          };
+          console.log(`[Store] Updated ${update.matchId}: ${update.home} vs ${update.away}`);
+        });
+
+        set({ matchUpdates: newUpdates });
+
+        // Opcionalmente guardar en Supabase (crear tabla match_updates si es necesario)
+        // Por ahora solo en localStorage via persist
+      },
+
+      // ─── Resultados de partidos ─────────────────
       matchResults: {},
 
       setLiveScore: async (matchId, homeScore, awayScore) => {
@@ -132,10 +156,21 @@ const useStore = create(
       },
 
       getAllMatches: () => {
-        const { matchResults } = get();
+        const { matchResults, matchUpdates } = get();
         return ALL_MATCHES.map(m => {
-          const override = matchResults[m.id];
-          return override ? { ...m, ...override } : m;
+          const resultOverride = matchResults[m.id];
+          const teamUpdate = matchUpdates[m.id];
+          
+          // Apply both team updates and result overrides
+          let match = { ...m };
+          if (teamUpdate) {
+            match = { ...match, ...teamUpdate };
+          }
+          if (resultOverride) {
+            match = { ...match, ...resultOverride };
+          }
+          
+          return match;
         });
       },
 
@@ -310,6 +345,7 @@ const useStore = create(
       // Solo persiste currentUserId localmente (los demás vienen de Supabase)
       partialize: (state) => ({
         currentUserId: state.currentUserId,
+        matchUpdates: state.matchUpdates, // Persist team updates for R32
         // Si Supabase no está configurado, persistir todo localmente
         ...(isSupabaseConfigured ? {} : {
           users: state.users,
