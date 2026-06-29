@@ -32,6 +32,7 @@ export function calcularPuntos(prediction, match) {
   
   const realHome = match.homeScore;
   const realAway = match.awayScore;
+  const realHasPenalties = match.homePenalties !== null && match.homePenalties !== undefined;
   
   if (realHome === null || realAway === null) return null;
   if (predHome === null || predAway === null) return null;
@@ -39,12 +40,24 @@ export function calcularPuntos(prediction, match) {
   // Marcador exacto en tiempo regular → 3 puntos
   if (predHome === realHome && predAway === realAway) return 3;
 
-  // Determinar ganador en tiempo regular (penales NO afectan la puntuación)
+  // Determinar ganador en tiempo regular
   const predWinner = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
   const realWinner = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
 
-  // Ganador correcto en tiempo regular (o empate correcto) → 1 punto
-  if (predWinner === realWinner) return 1;
+  // Si acertó el resultado en tiempo regular (empate)
+  if (predWinner === realWinner) {
+    let points = 1; // Punto base por acertar resultado regular
+    
+    // Si el partido se definió por penales y el usuario predijo el ganador correcto
+    if (realHasPenalties && realWinner === 'draw' && predPenaltyWinner) {
+      const realPenaltyWinner = match.homePenalties > match.awayPenalties ? 'home' : 'away';
+      if (predPenaltyWinner === realPenaltyWinner) {
+        points += 1; // Punto adicional por acertar ganador en penales
+      }
+    }
+    
+    return points;
+  }
 
   return 0;
 }
