@@ -111,9 +111,20 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
   const awayEs = resolveTeam(awayApi);
 
   // Filter by kickoff time (±24h tolerance to handle timezone/scheduling differences)
-  const byTime = localMatches.filter(m =>
-    Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= 24 * 60 * 60 * 1000
-  );
+  const byTime = localMatches.filter(m => {
+    // Skip R32 matches with placeholders - let fetchR32Updates handle them
+    const hasPlaceholder = 
+      m.phase === 'r32' && (
+        m.home.match(/^[123][A-L]$/) || 
+        m.away.match(/^[123][A-L]$/) ||
+        m.home.match(/^3[A-Z]+$/) ||
+        m.away.match(/^3[A-Z]+$/)
+      );
+    
+    if (hasPlaceholder) return false;
+    
+    return Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= 24 * 60 * 60 * 1000;
+  });
 
   if (byTime.length === 0) return null;
 
