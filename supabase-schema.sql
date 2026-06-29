@@ -20,9 +20,15 @@ create table if not exists public.match_results (
   match_id text primary key,
   home_score integer not null,
   away_score integer not null,
+  home_penalties integer,
+  away_penalties integer,
   status text not null default 'finished',
   updated_at timestamptz not null default now()
 );
+
+-- Agregar columnas de penales si la tabla ya existía
+alter table public.match_results add column if not exists home_penalties integer;
+alter table public.match_results add column if not exists away_penalties integer;
 
 -- Tabla de pronósticos
 create table if not exists public.predictions (
@@ -31,10 +37,18 @@ create table if not exists public.predictions (
   match_id text not null,
   home_score integer not null,
   away_score integer not null,
+  penalty_winner text,
+  home_penalties integer,
+  away_penalties integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(user_id, match_id)
 );
+
+-- Agregar columnas de penales si la tabla ya existía
+alter table public.predictions add column if not exists penalty_winner text;
+alter table public.predictions add column if not exists home_penalties integer;
+alter table public.predictions add column if not exists away_penalties integer;
 
 -- =====================================================
 -- ÍNDICES para mejorar performance
