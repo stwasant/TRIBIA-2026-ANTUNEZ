@@ -237,14 +237,25 @@ export async function fetchTodayScores(localMatches) {
  * @returns {Promise<Array>} - array of { matchId, home, away, homeFlag, awayFlag }
  */
 export async function fetchR32Updates(localMatches) {
-  // Only check R32 matches (those with placeholder teams like "1A", "2B", etc.)
+  console.log('[R32 Updates] Starting R32 update check...');
+  console.log('[R32 Updates] Total local matches:', localMatches.length);
+  
+  // Helper to detect placeholder teams
+  const isPlaceholder = (team) => {
+    if (!team) return false;
+    return (
+      team.match(/^[123][A-L]$/) ||       // "1A", "2B", "3C"
+      team.match(/^3[A-Z]+$/) ||          // "3ABCD", "3ABCDF"
+      team.toLowerCase().includes('group') ||      // "Group X Winner"
+      team.toLowerCase().includes('third') ||      // "Third Place Group..."
+      team.toLowerCase().includes('winner') ||     // Any "Winner"
+      team.toLowerCase().includes('place')         // "2nd Place", "Third Place"
+    );
+  };
+  
+  // Only check R32 matches (those with placeholder teams)
   const r32Matches = localMatches.filter(m => 
-    m.phase === 'r32' && (
-      m.home.match(/^[123][A-L]$/) || // Matches patterns like 1A, 2B, 3ABC
-      m.away.match(/^[123][A-L]$/) ||
-      m.home.match(/^3[A-Z]+$/) ||    // Matches patterns like 3ABCD
-      m.away.match(/^3[A-Z]+$/)
-    )
+    m.phase === 'r32' && (isPlaceholder(m.home) || isPlaceholder(m.away))
   );
 
   console.log(`[R32 Updates] Found ${r32Matches.length} matches with placeholders:`);
@@ -257,11 +268,16 @@ export async function fetchR32Updates(localMatches) {
   const updates = [];
 
   for (const dateStr of dates) {
+    console.log(`[R32 Updates] Fetching ESPN for date: ${dateStr}...`);
     try {
       const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
-      if (!res.ok) continue;
+      if (!res.ok) {
+        console.log(`[R32 Updates] ESPN fetch failed for ${dateStr}: ${res.status}`);
+        continue;
+      }
 
       const data = await res.json();
+      console.log(`[R32 Updates] ESPN returned ${data.events?.length || 0} events for ${dateStr}`);
 
       for (const event of (data.events || [])) {
         const competition = event.competitions?.[0];
@@ -270,7 +286,15 @@ export async function fetchR32Updates(localMatches) {
         // Check if it's a Round of 32 match
         const seasonType = event.season?.type;
         const seasonSlug = event.season?.slug;
-        if (seasonSlug !== 'round-of-32' && seasonType !== 13801) continue;
+        
+        console.log(`  [Event] ${event.name} - Season: ${seasonSlug}, Type: ${seasonType}`);
+        
+        if (seasonSlug !== 'round-of-32' && seasonType !== 13801) {
+          console.log(`    ⏭️  Skipping - not R32 (slug: ${seasonSlug}, type: ${seasonType})`);
+          continue;
+        }
+        
+        console.log(`    ✓ This is R32!`);
 
         const homeComp = competition.competitors?.find(c => c.homeAway === 'home');
         const awayComp = competition.competitors?.find(c => c.homeAway === 'away');
@@ -287,17 +311,18 @@ export async function fetchR32Updates(localMatches) {
         const city = competition.venue?.address?.city || '';
 
         console.log(`    Venue: ${venue}, City: ${city}`);
+        console.log(`    Looking for match in ${r32Matches.length} remaining placeholders...`);
 
         const localMatch = r32Matches.find(m => {
+          console.log(`      Checking ${m.id}: ${m.home} vs ${m.away}`);
           const timeDiff = Math.abs(new Date(m.kickoff).getTime() - apiKickoff);
           const timeMatch = timeDiff <= 6 * 60 * 60 * 1000; // 6 hour tolerance
           
-          console.log(`    Checking ${m.id}: ${m.home} vs ${m.away} @ ${m.kickoff} (city: ${m.city})`);
-          console.log(`      Time diff: ${timeDiff / (60*60*1000)} hours - Match: ${timeMatch}`);
+          console.log(`        Time diff: ${timeDiff / (60*60*1000).toFixed(2)} hours - Match: ${timeMatch}`);
           
           // If exact time match (0 hours diff), skip city check - it's definitely the right match
           if (timeDiff === 0) {
-            console.log(`      ✅ Exact time match - accepting without city check`);
+            console.log(`        ✅ Exact time match - accepting without city check`);
             return true;
           }
           
@@ -315,10 +340,12 @@ export async function fetchR32Updates(localMatches) {
                         cityNorm.includes('foxborough') && mCityNorm.includes('boston') || // Foxborough = Boston area
                         cityNorm.includes('boston') && mCityNorm.includes('foxborough') ||
                         cityNorm.includes('inglewood') && mCityNorm.includes('angeles'); // Inglewood = LA area
-            console.log(`      City match: ${venueMatch} (${cityNorm} vs ${mCityNorm})`);
+            console.log(`        City match: ${venueMatch} (${cityNorm} vs ${mCityNorm})`);
           }
           
-          return timeMatch && venueMatch;
+          const finalMatch = timeMatch && venueMatch;
+          console.log(`        Final result: ${finalMatch}`);
+          return finalMatch;
         });
 
         if (!localMatch) {

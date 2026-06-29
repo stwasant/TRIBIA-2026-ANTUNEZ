@@ -12,6 +12,9 @@ export function useLiveScores() {
   const r32TimerRef = useRef(null);
 
   useEffect(() => {
+    console.log('[LiveScores Hook] Initializing...');
+    console.log('[LiveScores Hook] isFootballDataConfigured:', isFootballDataConfigured);
+    
     if (!isFootballDataConfigured) return;
 
     const sync = async () => {
@@ -33,19 +36,48 @@ export function useLiveScores() {
     };
 
     const syncR32Updates = async () => {
+      console.log('[R32 Hook] syncR32Updates called');
+      
       // First check if there are any placeholders
       const { getAllMatches } = useStore.getState();
       const matches = getAllMatches();
-      const hasPlaceholders = matches.some(m => 
-        m.phase === 'r32' && (
-          m.home.match(/^[123][A-L]$/) || 
-          m.away.match(/^[123][A-L]$/) ||
-          m.home.match(/^3[A-Z]+$/) ||
-          m.away.match(/^3[A-Z]+$/)
-        )
-      );
       
-      if (!hasPlaceholders) {
+      console.log('[R32 Hook] Total matches from store:', matches.length);
+      console.log('[R32 Hook] Checking for placeholders...');
+      
+      // Find ALL R32 matches and check each one
+      const r32Matches = matches.filter(m => m.phase === 'r32');
+      console.log('[R32 Hook] Total R32 matches:', r32Matches.length);
+      
+      // Log ALL R32 matches to see what's in the store
+      console.log('[R32 Hook] All R32 matches in store:');
+      r32Matches.forEach(m => console.log(`  ${m.id}: ${m.home} vs ${m.away}`));
+      
+      const placeholderMatches = r32Matches.filter(m => {
+        // Match patterns:
+        // - "1A", "2B", "3C" etc.
+        // - "3ABCD", "3ABCDF" etc.
+        // - "Third Place Group X/Y/Z"
+        // - "Group X Winner", "Group X 2nd Place"
+        // - Any text containing "Group", "Third", "Winner", "Place"
+        const isPlaceholder = (team) => {
+          if (!team) return false;
+          return (
+            team.match(/^[123][A-L]$/) ||
+            team.match(/^3[A-Z]+$/) ||
+            team.toLowerCase().includes('group') ||
+            team.toLowerCase().includes('third') ||
+            team.toLowerCase().includes('winner') ||
+            team.toLowerCase().includes('place')
+          );
+        };
+        return isPlaceholder(m.home) || isPlaceholder(m.away);
+      });
+      
+      console.log('[R32 Hook] Matches with placeholders:', placeholderMatches.length);
+      placeholderMatches.forEach(m => console.log(`  - ${m.id}: ${m.home} vs ${m.away}`));
+      
+      if (placeholderMatches.length === 0) {
         console.log('[R32 Updates] All teams already updated, skipping');
         return;
       }
@@ -54,6 +86,10 @@ export function useLiveScores() {
       const lastUpdate = localStorage.getItem('r32-last-update');
       const lastUpdateTime = lastUpdate ? parseInt(lastUpdate, 10) : 0;
       const timeSinceUpdate = Date.now() - lastUpdateTime;
+      
+      console.log('[R32 Hook] Last update:', lastUpdateTime ? new Date(lastUpdateTime).toISOString() : 'never');
+      console.log('[R32 Hook] Time since update:', Math.round(timeSinceUpdate / 1000), 'seconds');
+      console.log('[R32 Hook] Interval threshold:', R32_UPDATE_INTERVAL_MS / 1000, 'seconds');
       
       // Skip if updated recently (but continue if we have placeholders)
       if (timeSinceUpdate < R32_UPDATE_INTERVAL_MS) {
@@ -77,11 +113,15 @@ export function useLiveScores() {
       }
     };
 
+    console.log('[LiveScores Hook] Running initial sync...');
     sync(); // Run immediately on mount
+    console.log('[LiveScores Hook] Running initial R32 update check...');
     syncR32Updates(); // Also check for R32 updates immediately
     
+    console.log('[LiveScores Hook] Setting up intervals...');
     timerRef.current = setInterval(sync, POLL_INTERVAL_MS);
     r32TimerRef.current = setInterval(syncR32Updates, R32_UPDATE_INTERVAL_MS);
+    console.log('[LiveScores Hook] Intervals set - scores every', POLL_INTERVAL_MS/1000, 's, R32 every', R32_UPDATE_INTERVAL_MS/1000, 's');
 
     return () => {
       clearInterval(timerRef.current);
