@@ -42,7 +42,7 @@ export default function Hoy() {
         const pred = predictions.find(p => p.userId === user.id && p.matchId === match.id);
         const hasResult = match.homeScore !== null && match.awayScore !== null;
         const pts = pred && hasResult
-          ? calcularPuntos(pred.homeScore, pred.awayScore, match.homeScore, match.awayScore)
+          ? calcularPuntos(pred, match)
           : null;
         return { user, pred, pts };
       });

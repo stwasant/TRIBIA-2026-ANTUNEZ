@@ -210,6 +210,15 @@ export async function fetchTodayScores(localMatches) {
         const awayScore = parseInt(awayComp.score, 10);
         if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
+        // Check for penalty shootout scores
+        const homePenalties = homeComp.shootoutScore ? parseInt(homeComp.shootoutScore, 10) : null;
+        const awayPenalties = awayComp.shootoutScore ? parseInt(awayComp.shootoutScore, 10) : null;
+        const hasPenalties = homePenalties !== null && awayPenalties !== null;
+
+        if (hasPenalties) {
+          console.log(`  ⚽ Penalties: ${homePenalties} - ${awayPenalties}`);
+        }
+
         // Avoid duplicates
         const existing = results.find(r => r.matchId === localMatch.id);
         if (existing) continue;
@@ -218,6 +227,8 @@ export async function fetchTodayScores(localMatches) {
           matchId: localMatch.id,
           homeScore,
           awayScore,
+          homePenalties: hasPenalties ? homePenalties : undefined,
+          awayPenalties: hasPenalties ? awayPenalties : undefined,
           status,
           minute: event.status?.displayClock || '',
         });

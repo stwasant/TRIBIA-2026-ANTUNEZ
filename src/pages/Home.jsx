@@ -183,7 +183,7 @@ export default function Home() {
                     hasPredictions = true;
                     const hasResult = match.homeScore !== null && match.awayScore !== null;
                     const pts = hasResult
-                      ? calcularPuntos(pred.homeScore, pred.awayScore, match.homeScore, match.awayScore)
+                      ? calcularPuntos(pred, match)
                       : null;
                     if (pts !== null) ptsHoy += pts;
                     return { pred, pts };
@@ -354,11 +354,11 @@ export default function Home() {
         <PredictionModal
           match={editingMatch}
           prediction={predictions.find(p => p.userId === editingUserId && p.matchId === editingMatch.id)}
-          onSave={async (matchId, homeScore, awayScore) => {
+          onSave={async (matchId, predictionData) => {
             // Temporalmente cambiar el usuario activo para guardar el pronóstico
             const originalUser = currentUserId;
             useStore.getState().setCurrentUser(editingUserId);
-            await setPrediction(matchId, homeScore, awayScore);
+            await setPrediction(matchId, predictionData);
             // Restaurar usuario original
             if (originalUser) {
               useStore.getState().setCurrentUser(originalUser);

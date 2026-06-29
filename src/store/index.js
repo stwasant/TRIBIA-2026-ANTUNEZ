@@ -108,12 +108,14 @@ const useStore = create(
       // ─── Resultados de partidos ─────────────────
       matchResults: {},
 
-      setLiveScore: async (matchId, homeScore, awayScore) => {
+      setLiveScore: async (matchId, homeScore, awayScore, homePenalties, awayPenalties) => {
         if (isSupabaseConfigured) {
           await supabase.from('match_results').upsert({
             match_id: matchId,
             home_score: homeScore,
             away_score: awayScore,
+            home_penalties: homePenalties,
+            away_penalties: awayPenalties,
             status: 'live',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'match_id' });
@@ -121,17 +123,25 @@ const useStore = create(
         set(state => ({
           matchResults: {
             ...state.matchResults,
-            [matchId]: { homeScore, awayScore, status: 'live' },
+            [matchId]: { 
+              homeScore, 
+              awayScore, 
+              homePenalties, 
+              awayPenalties,
+              status: 'live' 
+            },
           },
         }));
       },
 
-      setMatchResult: async (matchId, homeScore, awayScore) => {
+      setMatchResult: async (matchId, homeScore, awayScore, homePenalties, awayPenalties) => {
         if (isSupabaseConfigured) {
           await supabase.from('match_results').upsert({
             match_id: matchId,
             home_score: homeScore,
             away_score: awayScore,
+            home_penalties: homePenalties,
+            away_penalties: awayPenalties,
             status: 'finished',
             updated_at: new Date().toISOString(),
           }, { onConflict: 'match_id' });
@@ -139,7 +149,13 @@ const useStore = create(
         set(state => ({
           matchResults: {
             ...state.matchResults,
-            [matchId]: { homeScore, awayScore, status: 'finished' },
+            [matchId]: { 
+              homeScore, 
+              awayScore, 
+              homePenalties,
+              awayPenalties,
+              status: 'finished' 
+            },
           },
         }));
       },
@@ -177,9 +193,14 @@ const useStore = create(
       // ─── Predicciones ────────────────────────────────────────
       predictions: [],
 
-      setPrediction: async (matchId, homeScore, awayScore) => {
+      setPrediction: async (matchId, predictionData) => {
         const { currentUserId } = get();
         if (!currentUserId) return;
+
+        // predictionData puede ser:
+        // { homeScore, awayScore } para fase de grupos
+        // { homeScore, awayScore, penaltyWinner, homePenalties?, awayPenalties? } para eliminación directa con empate
+        const { homeScore, awayScore, penaltyWinner, homePenalties, awayPenalties } = predictionData;
 
         const now = new Date().toISOString();
         const existing = get().predictions.find(
@@ -193,6 +214,9 @@ const useStore = create(
             match_id: matchId,
             home_score: homeScore,
             away_score: awayScore,
+            penalty_winner: penaltyWinner || null,
+            home_penalties: homePenalties || null,
+            away_penalties: awayPenalties || null,
             updated_at: now,
             created_at: existing?.createdAt ?? now,
           }, { onConflict: 'user_id,match_id' });
@@ -206,7 +230,15 @@ const useStore = create(
             return {
               predictions: state.predictions.map(p =>
                 p.userId === currentUserId && p.matchId === matchId
-                  ? { ...p, homeScore, awayScore, updatedAt: now }
+                  ? { 
+                      ...p, 
+                      homeScore, 
+                      awayScore, 
+                      penaltyWinner: penaltyWinner || null,
+                      homePenalties: homePenalties || null,
+                      awayPenalties: awayPenalties || null,
+                      updatedAt: now 
+                    }
                   : p
               ),
             };
@@ -220,6 +252,9 @@ const useStore = create(
                 matchId,
                 homeScore,
                 awayScore,
+                penaltyWinner: penaltyWinner || null,
+                homePenalties: homePenalties || null,
+                awayPenalties: awayPenalties || null,
                 createdAt: now,
                 updatedAt: now,
               },

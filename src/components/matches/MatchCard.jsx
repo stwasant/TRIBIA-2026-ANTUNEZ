@@ -5,12 +5,14 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
   const isFinished = match.status === 'finished';
   const isLive = isMatchLive(match);
   const hasResult = match.homeScore !== null && match.awayScore !== null;
+  const hasPenalties = match.homePenalties !== null && match.homePenalties !== undefined && 
+                       match.awayPenalties !== null && match.awayPenalties !== undefined;
   const hasPrediction = prediction && prediction.homeScore !== null;
   const isAdmin = isAdminUnlocked();
   const canPredict = disponibleParaPronosticar(match, isAdmin);
 
   const points = hasPrediction && hasResult
-    ? calcularPuntos(prediction.homeScore, prediction.awayScore, match.homeScore, match.awayScore)
+    ? calcularPuntos(prediction, match)
     : null;
 
   const pointsBadge = () => {
@@ -34,7 +36,14 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
           </div>
           <div className="text-center px-2">
             {hasResult
-              ? <span className="text-white font-bold text-sm">{match.homeScore}–{match.awayScore}</span>
+              ? (
+                <div className="flex flex-col items-center">
+                  <span className="text-white font-bold text-sm">{match.homeScore}–{match.awayScore}</span>
+                  {hasPenalties && (
+                    <span className="text-xs text-purple-400">({match.homePenalties}–{match.awayPenalties} pen.)</span>
+                  )}
+                </div>
+              )
               : <span className="text-gray-500 text-xs">vs</span>
             }
           </div>
@@ -82,9 +91,16 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
         {/* Marcador */}
         <div className="text-center min-w-[80px]">
           {hasResult ? (
-            <div className={`text-2xl font-black ${isFinished ? 'text-white' : 'text-red-400 animate-pulse'}`}>
-              {match.homeScore} – {match.awayScore}
-            </div>
+            <>
+              <div className={`text-2xl font-black ${isFinished ? 'text-white' : 'text-red-400 animate-pulse'}`}>
+                {match.homeScore} – {match.awayScore}
+              </div>
+              {hasPenalties && (
+                <div className="text-sm text-purple-400 mt-1">
+                  ({match.homePenalties} – {match.awayPenalties} pen.)
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-gray-600 font-bold text-lg">vs</div>
           )}
@@ -110,6 +126,11 @@ export default function MatchCard({ match, prediction, onPredict, showPrediction
                 <span className="text-sm font-bold text-yellow-400">
                   {prediction.homeScore} – {prediction.awayScore}
                 </span>
+                {prediction.penaltyWinner && (
+                  <span className="text-xs text-purple-400">
+                    (Gana {prediction.penaltyWinner === 'home' ? match.home : match.away} por pen.)
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {pointsBadge()}

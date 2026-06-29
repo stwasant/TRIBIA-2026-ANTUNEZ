@@ -41,7 +41,7 @@ export default function Pronosticos() {
     predictions.forEach(p => {
       const m = matches.find(x => x.id === p.matchId);
       if (m) {
-        const v = calcularPuntos(p.homeScore, p.awayScore, m.homeScore, m.awayScore);
+        const v = calcularPuntos(p, m);
         if (v !== null) pts += v;
       }
     });

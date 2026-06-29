@@ -1,16 +1,50 @@
 // Calcula los puntos de una predicción dado el resultado real
-export function calcularPuntos(predHome, predAway, realHome, realAway) {
+export function calcularPuntos(prediction, match) {
+  // prediction puede ser objeto {homeScore, awayScore, penaltyWinner?, ...} o números legacy
+  // match puede tener homePenalties/awayPenalties si hubo definición por penales
+  
+  let predHome, predAway, predPenaltyWinner;
+  if (typeof prediction === 'object' && prediction !== null) {
+    predHome = prediction.homeScore;
+    predAway = prediction.awayScore;
+    predPenaltyWinner = prediction.penaltyWinner;
+  } else {
+    // Legacy: primer argumento es homeScore, segundo es awayScore
+    predHome = prediction;
+    predAway = match;
+    // En este caso, match es el tercer argumento (debe venir de calcularPuntos(h, a, match))
+    // Para mantener compatibilidad, si recibimos 4 argumentos en formato antiguo
+    if (arguments.length === 4) {
+      const realHome = arguments[2];
+      const realAway = arguments[3];
+      if (realHome === null || realAway === null) return null;
+      if (predHome === null || predAway === null) return null;
+      
+      if (predHome === realHome && predAway === realAway) return 3;
+      
+      const ganadorPred = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
+      const ganadorReal = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
+      
+      if (ganadorPred === ganadorReal) return 1;
+      return 0;
+    }
+  }
+  
+  const realHome = match.homeScore;
+  const realAway = match.awayScore;
+  
   if (realHome === null || realAway === null) return null;
   if (predHome === null || predAway === null) return null;
 
-  // Marcador exacto → 3 puntos
+  // Marcador exacto en tiempo regular → 3 puntos
   if (predHome === realHome && predAway === realAway) return 3;
 
-  // Ganador correcto (o empate correcto) → 1 punto
-  const ganadorPred = predHome > predAway ? 'local' : predHome < predAway ? 'visitante' : 'empate';
-  const ganadorReal = realHome > realAway ? 'local' : realHome < realAway ? 'visitante' : 'empate';
+  // Determinar ganador en tiempo regular (penales NO afectan la puntuación)
+  const predWinner = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
+  const realWinner = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
 
-  if (ganadorPred === ganadorReal) return 1;
+  // Ganador correcto en tiempo regular (o empate correcto) → 1 punto
+  if (predWinner === realWinner) return 1;
 
   return 0;
 }
@@ -28,7 +62,7 @@ export function calcularTotalUsuario(userId, predictions, matches) {
     .forEach(p => {
       const match = matches.find(m => m.id === p.matchId);
       if (!match) return;
-      const pts = calcularPuntos(p.homeScore, p.awayScore, match.homeScore, match.awayScore);
+      const pts = calcularPuntos(p, match);
       if (pts === null) {
         pendientes++;
       } else {

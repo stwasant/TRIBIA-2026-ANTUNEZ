@@ -41,15 +41,48 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
   const [awayScore, setAwayScore] = useState(
     prediction?.awayScore !== undefined ? String(prediction.awayScore) : ''
   );
+  const [penaltyWinner, setPenaltyWinner] = useState(prediction?.penaltyWinner || null);
+  const [homePenalties, setHomePenalties] = useState(
+    prediction?.homePenalties !== undefined ? String(prediction.homePenalties) : ''
+  );
+  const [awayPenalties, setAwayPenalties] = useState(
+    prediction?.awayPenalties !== undefined ? String(prediction.awayPenalties) : ''
+  );
 
   const homeForm = getTeamForm(match.home, match.id);
   const awayForm = getTeamForm(match.away, match.id);
+  
+  const isKnockout = match.phase !== 'group'; // Eliminación directa
+  const isDraw = homeScore !== '' && awayScore !== '' && parseInt(homeScore) === parseInt(awayScore);
+  const needsPenaltyPrediction = isKnockout && isDraw;
 
   const handleSave = () => {
     const h = parseInt(homeScore);
     const a = parseInt(awayScore);
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) return;
-    onSave(match.id, h, a);
+    
+    // Si es eliminación directa y hay empate, requiere ganador por penales
+    if (needsPenaltyPrediction && !penaltyWinner) return;
+    
+    const predictionData = {
+      homeScore: h,
+      awayScore: a,
+    };
+    
+    // Agregar datos de penales si aplica
+    if (needsPenaltyPrediction) {
+      predictionData.penaltyWinner = penaltyWinner;
+      
+      // Opcionalmente guardar marcador de penales si fue ingresado
+      const hp = parseInt(homePenalties);
+      const ap = parseInt(awayPenalties);
+      if (!isNaN(hp) && !isNaN(ap) && hp >= 0 && ap >= 0) {
+        predictionData.homePenalties = hp;
+        predictionData.awayPenalties = ap;
+      }
+    }
+    
+    onSave(match.id, predictionData);
     onClose();
   };
 
@@ -62,7 +95,10 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
     [0,0],[1,0],[0,1],[1,1],[2,0],[0,2],[2,1],[1,2],[2,2],[3,0],[0,3],[3,1],[1,3],[3,2],[2,3],
   ];
 
-  const isValid = homeScore !== '' && awayScore !== '' && !isNaN(parseInt(homeScore)) && !isNaN(parseInt(awayScore)) && parseInt(homeScore) >= 0 && parseInt(awayScore) >= 0;
+  const isValid = homeScore !== '' && awayScore !== '' && 
+                  !isNaN(parseInt(homeScore)) && !isNaN(parseInt(awayScore)) && 
+                  parseInt(homeScore) >= 0 && parseInt(awayScore) >= 0 &&
+                  (!needsPenaltyPrediction || penaltyWinner !== null); // Requiere ganador si hay empate en eliminación
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
@@ -150,6 +186,70 @@ export default function PredictionModal({ match, prediction, onSave, onClose }) 
             ))}
           </div>
         </div>
+
+        {/* Selector de ganador por penales (solo en eliminación directa con empate) */}
+        {needsPenaltyPrediction && (
+          <div className="mb-5 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+            <p className="text-xs text-purple-300 text-center mb-3 font-medium">
+              ⚽ Partido de eliminación directa con empate
+            </p>
+            <p className="text-xs text-gray-400 text-center mb-3">
+              Selecciona quién ganará por penales
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPenaltyWinner('home')}
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                  penaltyWinner === 'home'
+                    ? 'bg-purple-500 border-purple-500 text-white font-bold'
+                    : 'border-gray-700 text-gray-400 hover:border-purple-500/50 hover:text-white'
+                }`}
+              >
+                <div className="text-2xl mb-1">{match.homeFlag}</div>
+                <div className="text-xs">{match.home}</div>
+              </button>
+              <button
+                onClick={() => setPenaltyWinner('away')}
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                  penaltyWinner === 'away'
+                    ? 'bg-purple-500 border-purple-500 text-white font-bold'
+                    : 'border-gray-700 text-gray-400 hover:border-purple-500/50 hover:text-white'
+                }`}
+              >
+                <div className="text-2xl mb-1">{match.awayFlag}</div>
+                <div className="text-xs">{match.away}</div>
+              </button>
+            </div>
+            
+            {/* Opcional: Marcador de penales */}
+            {penaltyWinner && (
+              <div className="mt-3 pt-3 border-t border-purple-500/20">
+                <p className="text-xs text-gray-400 text-center mb-2">Marcador de penales (opcional)</p>
+                <div className="flex items-center justify-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="15"
+                    value={homePenalties}
+                    onChange={e => setHomePenalties(e.target.value)}
+                    className="w-16 text-center py-2 px-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    placeholder="0"
+                  />
+                  <span className="text-gray-500">–</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="15"
+                    value={awayPenalties}
+                    onChange={e => setAwayPenalties(e.target.value)}
+                    className="w-16 text-center py-2 px-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Botones */}
         <div className="flex gap-3">

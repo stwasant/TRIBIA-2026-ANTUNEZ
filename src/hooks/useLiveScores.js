@@ -26,11 +26,12 @@ export function useLiveScores() {
       // (it queries ESPN for yesterday, today, and tomorrow)
       const results = await fetchTodayScores(allMatches);
 
-      for (const { matchId, homeScore, awayScore, status } of results) {
+      for (const result of results) {
+        const { matchId, homeScore, awayScore, homePenalties, awayPenalties, status } = result;
         if (status === 'FINISHED') {
-          setMatchResult(matchId, homeScore, awayScore);
+          setMatchResult(matchId, homeScore, awayScore, homePenalties, awayPenalties);
         } else if (status === 'IN_PLAY' || status === 'PAUSED') {
-          setLiveScore(matchId, homeScore, awayScore);
+          setLiveScore(matchId, homeScore, awayScore, homePenalties, awayPenalties);
         }
       }
     };
