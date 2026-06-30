@@ -18,6 +18,9 @@ async function sbFetchAll() {
   const predictions = (predsRes.data || []).map(p => ({
     id: p.id, userId: p.user_id, matchId: p.match_id,
     homeScore: p.home_score, awayScore: p.away_score,
+    penaltyWinner: p.penalty_winner || null,
+    homePenalties: p.home_penalties ?? null,
+    awayPenalties: p.away_penalties ?? null,
     createdAt: p.created_at, updatedAt: p.updated_at,
   }));
 
@@ -25,6 +28,8 @@ async function sbFetchAll() {
   (resultsRes.data || []).forEach(r => {
     matchResults[r.match_id] = {
       homeScore: r.home_score, awayScore: r.away_score, status: r.status,
+      homePenalties: r.home_penalties ?? null,
+      awayPenalties: r.away_penalties ?? null,
     };
   });
 
@@ -322,6 +327,9 @@ const useStore = create(
               data.predictions.map(p => ({
                 id: p.id, user_id: p.userId, match_id: p.matchId,
                 home_score: p.homeScore, away_score: p.awayScore,
+                penalty_winner: p.penaltyWinner || null,
+                home_penalties: p.homePenalties ?? null,
+                away_penalties: p.awayPenalties ?? null,
                 created_at: p.createdAt, updated_at: p.updatedAt,
               })),
               { onConflict: 'id' }

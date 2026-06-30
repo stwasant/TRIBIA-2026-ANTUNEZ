@@ -37,14 +37,26 @@ export function calcularPuntos(prediction, match) {
   if (realHome === null || realAway === null) return null;
   if (predHome === null || predAway === null) return null;
 
-  // Marcador exacto en tiempo regular → 3 puntos
-  if (predHome === realHome && predAway === realAway) return 3;
-
   // Determinar ganador en tiempo regular
   const predWinner = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
   const realWinner = realHome > realAway ? 'home' : realHome < realAway ? 'away' : 'draw';
 
-  // Si acertó el resultado en tiempo regular (empate)
+  // Marcador exacto en tiempo regular → 3 puntos base
+  if (predHome === realHome && predAway === realAway) {
+    let points = 3;
+
+    // Bono por acertar ganador en penales (solo si fue empate en tiempo regular)
+    if (realHasPenalties && realWinner === 'draw' && predPenaltyWinner) {
+      const realPenaltyWinner = match.homePenalties > match.awayPenalties ? 'home' : 'away';
+      if (predPenaltyWinner === realPenaltyWinner) {
+        points += 1;
+      }
+    }
+
+    return points;
+  }
+
+  // Si acertó el resultado en tiempo regular (ganador/empate) sin marcador exacto
   if (predWinner === realWinner) {
     let points = 1; // Punto base por acertar resultado regular
     
@@ -80,8 +92,8 @@ export function calcularTotalUsuario(userId, predictions, matches) {
         pendientes++;
       } else {
         total += pts;
-        if (pts === 3) aciertosExactos++;
-        else if (pts === 1) aciertosGanador++;
+        if (pts >= 3) aciertosExactos++;
+        else if (pts >= 1) aciertosGanador++;
         else fallidos++;
       }
     });
