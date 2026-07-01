@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked } from '../utils/scoring';
+import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked, computeRankingPositions } from '../utils/scoring';
 import PredictionModal from '../components/predictions/PredictionModal';
 
 export default function Home() {
@@ -26,31 +26,36 @@ export default function Home() {
       .sort((a, b) => b.puntosTotales - a.puntosTotales || b.stats.aciertosExactos - a.stats.aciertosExactos);
   }, [users, predictions, matches]);
 
-  // ─── Snapshot de ranking para mostrar movimiento de posiciones ───────────
-  const todayKey = new Date().toISOString().slice(0, 10);
-
+  // ─── Ranking del día anterior basado en datos reales ──────────────────
+  // Compara posiciones usando los resultados registrados ANTES de hoy
+  // (según updatedAt de cada match_result) vs todos los resultados.
   const prevRanking = useMemo(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('quinela-ranking-snapshot') || 'null');
-      // Solo usar si es de un día anterior
-      if (saved && saved.date !== todayKey) return saved.positions;
-      return null;
-    } catch { return null; }
-  }, [todayKey]);
+    if (users.length === 0 || matches.length === 0) return null;
 
-  // Guardar snapshot de hoy (se actualiza con cada resultado nuevo)
-  useEffect(() => {
-    if (ranking.length === 0) return;
-    const positions = {};
-    ranking.forEach(({ user }, idx) => { positions[user.id] = idx + 1; });
-    localStorage.setItem('quinela-ranking-snapshot', JSON.stringify({ date: todayKey, positions }));
-  }, [ranking, todayKey]);
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+    // Partidos cuyo resultado se registró antes de hoy.
+    // Los finalizados SIN updatedAt son resultados precargados (fase de grupos
+    // hardcodeada) → cuentan como "antes de hoy".
+    const finishedBeforeToday = matches.filter(m =>
+      m.status === 'finished' &&
+      (!m.updatedAt || new Date(m.updatedAt).getTime() < todayStart)
+    );
+
+    // Si no hay resultados previos o no cambió nada respecto a hoy, no mostrar
+    const finishedToday = matches.filter(m => m.status === 'finished');
+    if (finishedBeforeToday.length === 0) return null;
+    if (finishedBeforeToday.length === finishedToday.length) return null;
+
+    return computeRankingPositions(users, predictions, finishedBeforeToday);
+  }, [users, predictions, matches]);
 
   function getMovement(userId, currentIdx) {
     if (!prevRanking) return null;
     const prev = prevRanking[userId];
     if (prev == null) return { type: 'new' };
-    const diff = prev - (currentIdx + 1); // positivo = subió
+    const diff = prev - (currentIdx + 1);
     if (diff === 0) return { type: 'same' };
     return { type: diff > 0 ? 'up' : 'down', diff: Math.abs(diff) };
   }
@@ -254,6 +259,11 @@ export default function Home() {
       <div>
         <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
           <span>🏅</span> Tabla de Posiciones
+          {prevRanking && (
+            <span className="text-xs font-normal text-gray-500 ml-2">
+              (cambios vs ayer)
+            </span>
+          )}
         </h2>
 
         {users.length === 0 ? (
@@ -279,14 +289,15 @@ export default function Home() {
                    idx === 1 ? <span className="text-2xl">🥈</span> :
                    idx === 2 ? <span className="text-2xl">🥉</span> :
                    <span className="text-gray-500 font-bold text-lg">{idx + 1}</span>}
-                  {(() => {
-                    const mv = getMovement(user.id, idx);
-                    if (!mv || mv.type === 'same') return null;
-                    if (mv.type === 'new') return <div className="text-xs text-yellow-400 font-bold">NEW</div>;
-                    return (
-                      <div className={`text-xs font-bold flex items-center justify-center gap-0.5 ${mv.type === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-                        {mv.type === 'up' ? '▲' : '▼'}{mv.diff}
-                      </div>
+                   {(() => {
+                     const mv = getMovement(user.id, idx);
+                     if (!mv) return <div className="text-xs text-gray-700">—</div>;
+                     if (mv.type === 'same') return <div className="text-xs text-gray-600">—</div>;
+                     if (mv.type === 'new') return <div className="text-xs text-yellow-400 font-bold">NEW</div>;
+                     return (
+                       <div className={`text-xs font-bold flex items-center justify-center gap-0.5 ${mv.type === 'up' ? 'text-green-400' : 'text-red-400'}`}>
+                         {mv.type === 'up' ? '▲' : '▼'}{mv.diff}
+                       </div>
                     );
                   })()}
                 </div>

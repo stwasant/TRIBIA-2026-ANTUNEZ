@@ -30,6 +30,7 @@ async function sbFetchAll() {
       homeScore: r.home_score, awayScore: r.away_score, status: r.status,
       homePenalties: r.home_penalties ?? null,
       awayPenalties: r.away_penalties ?? null,
+      updatedAt: r.updated_at ?? null,
     };
   });
 
@@ -114,6 +115,7 @@ const useStore = create(
       matchResults: {},
 
       setLiveScore: async (matchId, homeScore, awayScore, homePenalties, awayPenalties) => {
+        const nowIso = new Date().toISOString();
         if (isSupabaseConfigured) {
           await supabase.from('match_results').upsert({
             match_id: matchId,
@@ -122,7 +124,7 @@ const useStore = create(
             home_penalties: homePenalties,
             away_penalties: awayPenalties,
             status: 'live',
-            updated_at: new Date().toISOString(),
+            updated_at: nowIso,
           }, { onConflict: 'match_id' });
         }
         set(state => ({
@@ -133,13 +135,25 @@ const useStore = create(
               awayScore, 
               homePenalties, 
               awayPenalties,
-              status: 'live' 
+              status: 'live',
+              updatedAt: nowIso,
             },
           },
         }));
       },
 
       setMatchResult: async (matchId, homeScore, awayScore, homePenalties, awayPenalties) => {
+        // Evitar re-escribir (y refrescar updatedAt) si el resultado no cambió.
+        // Esto mantiene updatedAt como "cuándo se estableció el resultado".
+        const existing = get().matchResults[matchId];
+        if (existing && existing.status === 'finished'
+            && existing.homeScore === homeScore && existing.awayScore === awayScore
+            && (existing.homePenalties ?? null) === (homePenalties ?? null)
+            && (existing.awayPenalties ?? null) === (awayPenalties ?? null)) {
+          return;
+        }
+
+        const nowIso = new Date().toISOString();
         if (isSupabaseConfigured) {
           await supabase.from('match_results').upsert({
             match_id: matchId,
@@ -148,7 +162,7 @@ const useStore = create(
             home_penalties: homePenalties,
             away_penalties: awayPenalties,
             status: 'finished',
-            updated_at: new Date().toISOString(),
+            updated_at: nowIso,
           }, { onConflict: 'match_id' });
         }
         set(state => ({
@@ -159,7 +173,8 @@ const useStore = create(
               awayScore, 
               homePenalties,
               awayPenalties,
-              status: 'finished' 
+              status: 'finished',
+              updatedAt: nowIso,
             },
           },
         }));

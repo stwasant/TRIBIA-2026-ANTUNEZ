@@ -214,3 +214,18 @@ export function isMatchLive(match) {
   const now = Date.now();
   return now >= start && now < start + MATCH_WINDOW_MS;
 }
+
+// Calcula posiciones del ranking para un conjunto dado de usuarios, predicciones y partidos
+// Retorna { [userId]: position } ordenado por puntos totales (desempate: aciertos exactos)
+export function computeRankingPositions(users, predictions, matches) {
+  return users
+    .map(user => {
+      const stats = calcularTotalUsuario(user.id, predictions, matches);
+      return { userId: user.id, puntosTotales: stats.total + (user.points || 0), stats };
+    })
+    .sort((a, b) => b.puntosTotales - a.puntosTotales || b.stats.aciertosExactos - a.stats.aciertosExactos)
+    .reduce((map, { userId }, idx) => {
+      map[userId] = idx + 1;
+      return map;
+    }, {});
+}
