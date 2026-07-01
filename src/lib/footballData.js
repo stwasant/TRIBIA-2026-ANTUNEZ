@@ -396,6 +396,144 @@ export async function fetchR32Updates(localMatches) {
   return updates;
 }
 
+/**
+ * Fetch Round of 16 matches from ESPN to update placeholder teams.
+ * Detects when R16 teams are defined and updates local matches with real team names.
+ * @param {Array} localMatches - our local match objects
+ * @returns {Promise<Array>} - array of { matchId, home, away, homeFlag, awayFlag }
+ */
+export async function fetchR16Updates(localMatches) {
+  console.log('[R16 Updates] Starting R16 update check...');
+
+  const isPlaceholder = (team) => {
+    if (!team) return true;
+    return team === 'Por definir';
+  };
+
+  const r16Matches = localMatches.filter(m =>
+    m.phase === 'r16' && (isPlaceholder(m.home) || isPlaceholder(m.away))
+  );
+
+  console.log(`[R16 Updates] Found ${r16Matches.length} R16 matches with placeholders`);
+  r16Matches.forEach(m => console.log(`  - ${m.id}: ${m.home} vs ${m.away} @ ${m.kickoff} in ${m.city}`));
+
+  if (r16Matches.length === 0) return [];
+
+  const dates = ['20260704', '20260705', '20260706', '20260707'];
+  const updates = [];
+
+  for (const dateStr of dates) {
+    console.log(`[R16 Updates] Fetching ESPN for date: ${dateStr}...`);
+    try {
+      const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
+      if (!res.ok) {
+        console.log(`[R16 Updates] ESPN fetch failed for ${dateStr}: ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      console.log(`[R16 Updates] ESPN returned ${data.events?.length || 0} events for ${dateStr}`);
+
+      for (const event of (data.events || [])) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
+
+        const seasonSlug = event.season?.slug;
+        if (seasonSlug !== 'round-of-16') {
+          console.log(`  [Event] ${event.name} - skipping (slug: ${seasonSlug})`);
+          continue;
+        }
+
+        const homeComp = competition.competitors?.find(c => c.homeAway === 'home');
+        const awayComp = competition.competitors?.find(c => c.homeAway === 'away');
+        if (!homeComp || !awayComp) continue;
+
+        const homeTeam = homeComp.team || {};
+        const awayTeam = awayComp.team || {};
+
+        if (!homeTeam.isActive || !awayTeam.isActive) {
+          console.log(`  [R16] Skipping placeholder: ${homeTeam.displayName} vs ${awayTeam.displayName}`);
+          continue;
+        }
+
+        const homeApi = homeTeam.displayName || homeTeam.name || '';
+        const awayApi = awayTeam.displayName || awayTeam.name || '';
+        const apiKickoff = new Date(event.date).getTime();
+
+        const city = competition.venue?.address?.city || '';
+        console.log(`  [ESPN R16] ${homeApi} vs ${awayApi} @ ${new Date(apiKickoff).toISOString()} in ${city}`);
+
+        const localMatch = r16Matches.find(m => {
+          const timeDiff = Math.abs(new Date(m.kickoff).getTime() - apiKickoff);
+          const timeMatch = timeDiff <= 6 * 60 * 60 * 1000;
+
+          if (timeDiff === 0) return true;
+
+          let venueMatch = true;
+          if (city && m.city) {
+            const cityNorm = normalize(city);
+            const mCityNorm = normalize(m.city);
+            venueMatch = cityNorm.includes(mCityNorm) || mCityNorm.includes(cityNorm) ||
+              cityNorm.includes('los') && mCityNorm.includes('los') ||
+              cityNorm.includes('angeles') && mCityNorm.includes('angeles') ||
+              cityNorm.includes('houston') && mCityNorm.includes('houston') ||
+              cityNorm.includes('dallas') && mCityNorm.includes('dallas') ||
+              cityNorm.includes('arlington') && mCityNorm.includes('dallas') ||
+              cityNorm.includes('east') && mCityNorm.includes('jersey') ||
+              cityNorm.includes('rutherford') && mCityNorm.includes('jersey') ||
+              cityNorm.includes('atlanta') && mCityNorm.includes('atlanta') ||
+              cityNorm.includes('vancouver') && mCityNorm.includes('vancouver') ||
+              cityNorm.includes('seattle') && mCityNorm.includes('seattle') ||
+              cityNorm.includes('mexico') && mCityNorm.includes('mexico') ||
+              cityNorm.includes('santa') && mCityNorm.includes('bah');
+          }
+
+          return timeMatch && venueMatch;
+        });
+
+        if (!localMatch) {
+          console.log(`    ❌ No local R16 match found for ${homeApi} vs ${awayApi}`);
+          continue;
+        }
+
+        console.log(`    ✅ Matched with local ${localMatch.id}`);
+
+        const homeEs = resolveTeam(homeApi);
+        const awayEs = resolveTeam(awayApi);
+
+        if (homeEs === homeApi && !ES_TO_EN[homeEs]) {
+          console.log(`    ⚠️ No Spanish mapping for ${homeApi}, skipping`);
+          continue;
+        }
+        if (awayEs === awayApi && !ES_TO_EN[awayEs]) {
+          console.log(`    ⚠️ No Spanish mapping for ${awayApi}, skipping`);
+          continue;
+        }
+
+        console.log(`[R16 Update] ${localMatch.id}: ${homeEs} vs ${awayEs}`);
+
+        const existing = updates.find(u => u.matchId === localMatch.id);
+        if (existing) continue;
+
+        updates.push({
+          matchId: localMatch.id,
+          home: homeEs,
+          away: awayEs,
+          homeFlag: getCountryFlag(homeEs),
+          awayFlag: getCountryFlag(awayEs),
+        });
+
+        const idx = r16Matches.indexOf(localMatch);
+        if (idx > -1) r16Matches.splice(idx, 1);
+      }
+    } catch (err) {
+      console.warn(`[R16 Updates] ESPN fetch failed for ${dateStr}:`, err.message);
+    }
+  }
+
+  return updates;
+}
+
 // Helper function to get country flag emoji (basic mapping)
 function getCountryFlag(countryName) {
   const flagMap = {

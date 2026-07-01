@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import useStore from '../store';
-import { fetchTodayScores, fetchR32Updates, isFootballDataConfigured } from '../lib/footballData';
+import { fetchTodayScores, fetchR32Updates, fetchR16Updates, isFootballDataConfigured } from '../lib/footballData';
 
 // 90 seconds: safe for free tier (10 req/min) with up to ~8 concurrent users
 const POLL_INTERVAL_MS = 90 * 1000;
@@ -10,6 +10,7 @@ const R32_UPDATE_INTERVAL_MS = 10 * 60 * 1000;
 export function useLiveScores() {
   const timerRef = useRef(null);
   const r32TimerRef = useRef(null);
+  const r16TimerRef = useRef(null);
 
   useEffect(() => {
     console.log('[LiveScores Hook] Initializing...');
@@ -114,19 +115,65 @@ export function useLiveScores() {
       }
     };
 
+    const syncR16Updates = async () => {
+      console.log('[R16 Hook] syncR16Updates called');
+
+      const { getAllMatches } = useStore.getState();
+      const matches = getAllMatches();
+
+      const r16Placeholders = matches.filter(m =>
+        m.phase === 'r16' && (m.home === 'Por definir' || m.away === 'Por definir')
+      );
+
+      console.log('[R16 Hook] R16 matches with placeholders:', r16Placeholders.length);
+      r16Placeholders.forEach(m => console.log(`  - ${m.id}: ${m.home} vs ${m.away}`));
+
+      if (r16Placeholders.length === 0) {
+        console.log('[R16 Updates] All R16 teams already updated, skipping');
+        return;
+      }
+
+      const lastUpdate = localStorage.getItem('r16-last-update');
+      const lastUpdateTime = lastUpdate ? parseInt(lastUpdate, 10) : 0;
+      const timeSinceUpdate = Date.now() - lastUpdateTime;
+
+      if (timeSinceUpdate < R32_UPDATE_INTERVAL_MS) {
+        console.log('[R16 Updates] Updated recently, waiting for next interval');
+        return;
+      }
+
+      console.log('[R16 Updates] Fetching team updates from ESPN...');
+      const { updateMatchTeams } = useStore.getState();
+
+      const updates = await fetchR16Updates(matches);
+
+      if (updates.length > 0) {
+        await updateMatchTeams(updates);
+        localStorage.setItem('r16-last-update', Date.now().toString());
+        console.log(`[R16 Updates] ✅ Updated ${updates.length} R16 matches with real teams!`);
+      } else {
+        localStorage.setItem('r16-last-update', Date.now().toString());
+        console.log('[R16 Updates] No new updates found, will retry later');
+      }
+    };
+
     console.log('[LiveScores Hook] Running initial sync...');
     sync(); // Run immediately on mount
     console.log('[LiveScores Hook] Running initial R32 update check...');
     syncR32Updates(); // Also check for R32 updates immediately
+    console.log('[LiveScores Hook] Running initial R16 update check...');
+    syncR16Updates();
     
     console.log('[LiveScores Hook] Setting up intervals...');
     timerRef.current = setInterval(sync, POLL_INTERVAL_MS);
     r32TimerRef.current = setInterval(syncR32Updates, R32_UPDATE_INTERVAL_MS);
-    console.log('[LiveScores Hook] Intervals set - scores every', POLL_INTERVAL_MS/1000, 's, R32 every', R32_UPDATE_INTERVAL_MS/1000, 's');
+    r16TimerRef.current = setInterval(syncR16Updates, R32_UPDATE_INTERVAL_MS);
+    console.log('[LiveScores Hook] Intervals set - scores every', POLL_INTERVAL_MS/1000, 's, R32/R16 every', R32_UPDATE_INTERVAL_MS/1000, 's');
 
     return () => {
       clearInterval(timerRef.current);
       clearInterval(r32TimerRef.current);
+      clearInterval(r16TimerRef.current);
     };
   }, []); // Runs once on mount
 }
