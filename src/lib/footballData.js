@@ -144,18 +144,23 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
 
 // Map ESPN status strings to our internal status
 function mapStatus(espnStatus) {
-  switch (espnStatus) {
-    case 'STATUS_FINAL':        return 'FINISHED';
-    case 'STATUS_FULL_TIME':    return 'FINISHED';
-    case 'STATUS_FINAL_PEN':    return 'FINISHED';
-    case 'STATUS_IN_PROGRESS':  return 'IN_PLAY';
-    case 'STATUS_FIRST_HALF':   return 'IN_PLAY';
-    case 'STATUS_SECOND_HALF':  return 'IN_PLAY';
-    case 'STATUS_OVERTIME':     return 'IN_PLAY';
-    case 'STATUS_HALFTIME':     return 'PAUSED';
-    case 'STATUS_DELAYED':      return 'PAUSED';
-    case 'STATUS_SUSPENDED':    return 'PAUSED';
-    default:                    return 'SCHEDULED';
+  const s = espnStatus || '';
+  // Cualquier estado final cuenta como FINISHED:
+  // STATUS_FINAL, STATUS_FULL_TIME, STATUS_FINAL_PEN (penales),
+  // STATUS_FINAL_AET (alargue), STATUS_FINAL_AWD (adjudicado), etc.
+  if (s.includes('FINAL') || s === 'STATUS_FULL_TIME') return 'FINISHED';
+  switch (s) {
+    case 'STATUS_IN_PROGRESS':      return 'IN_PLAY';
+    case 'STATUS_FIRST_HALF':       return 'IN_PLAY';
+    case 'STATUS_SECOND_HALF':      return 'IN_PLAY';
+    case 'STATUS_OVERTIME':         return 'IN_PLAY';
+    case 'STATUS_END_OF_PERIOD':    return 'IN_PLAY';
+    case 'STATUS_END_OF_EXTRATIME': return 'IN_PLAY';
+    case 'STATUS_SHOOTOUT':         return 'IN_PLAY';
+    case 'STATUS_HALFTIME':         return 'PAUSED';
+    case 'STATUS_DELAYED':          return 'PAUSED';
+    case 'STATUS_SUSPENDED':        return 'PAUSED';
+    default:                        return 'SCHEDULED';
   }
 }
 

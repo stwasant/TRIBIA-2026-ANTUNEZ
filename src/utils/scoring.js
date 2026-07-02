@@ -200,18 +200,26 @@ export function hasMatchStarted(match) {
 }
 
 // Ventana aproximada de duración de un partido (para el estado "en vivo").
-const MATCH_WINDOW_MS = 135 * 60 * 1000; // ~2h15m
+const MATCH_WINDOW_MS = 135 * 60 * 1000; // ~2h15m (partido regular)
+// Máximo absoluto que un partido puede estar "en vivo" (incluye alargue + penales).
+// Pasado esto, un flag 'live' pegado se considera vencido y NO se muestra en vivo.
+const LIVE_MAX_MS = 210 * 60 * 1000; // ~3h30m
 
 // Indica si el partido está EN VIVO ahora, derivado del kickoff real (no de un
 // flag estático que no expira). Un partido finalizado nunca está en vivo.
 export function isMatchLive(match) {
   if (match?.status === 'finished') return false;
-  // Si el status es 'live' (de ESPN), confiar en eso
-  if (match?.status === 'live') return true;
   const d = getMatchKickoff(match);
-  if (!d) return false;
+  // Sin kickoff válido, solo confiar en el flag 'live'
+  if (!d) return match?.status === 'live';
   const start = d.getTime();
   const now = Date.now();
+  // Si viene marcado 'live' desde ESPN, confiar en él pero con expiración:
+  // nunca considerar en vivo un partido que empezó hace más de LIVE_MAX_MS.
+  if (match?.status === 'live') {
+    return now >= start && now < start + LIVE_MAX_MS;
+  }
+  // Sin flag: derivar de la ventana regular del partido
   return now >= start && now < start + MATCH_WINDOW_MS;
 }
 
