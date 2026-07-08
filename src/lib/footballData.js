@@ -112,8 +112,8 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
 
   // Filter by kickoff time (±24h tolerance to handle timezone/scheduling differences)
   const byTime = localMatches.filter(m => {
-    // Skip R32 matches with placeholders - let fetchR32Updates handle them
-    const hasPlaceholder = 
+    // Skip R32 matches with structural placeholders - let fetchR32Updates handle them
+    const hasStructuralPlaceholder = 
       m.phase === 'r32' && (
         m.home.match(/^[123][A-L]$/) || 
         m.away.match(/^[123][A-L]$/) ||
@@ -121,14 +121,14 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
         m.away.match(/^3[A-Z]+$/)
       );
     
-    if (hasPlaceholder) return false;
+    if (hasStructuralPlaceholder) return false;
     
     return Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= 24 * 60 * 60 * 1000;
   });
 
   if (byTime.length === 0) return null;
 
-  // Find match where BOTH teams match (home AND away)
+  // First try: exact team name match (home AND away)
   const exactMatch = byTime.find(m => {
     const homeMatch = m.home === homeEs || normalize(m.home) === normalize(homeEs);
     const awayMatch = m.away === awayEs || normalize(m.away) === normalize(awayEs);
@@ -137,7 +137,33 @@ function findLocalMatch(homeApi, awayApi, apiKickoff, localMatches) {
 
   if (exactMatch) return exactMatch;
 
-  // No exact match found - don't return a wrong match
+  // Second try: for knockout matches (R16/QF/SF/3rd/Final) that still have
+  // "Por definir" placeholder teams, match by closest kickoff time.
+  // - R16: 6h window (matches may be mid-day apart but each day has only 2)
+  // - QF/SF/Final: 8h window (ESPN kickoff UTC can differ from our stored UTC by up to ~8h
+  //   due to early data-entry errors, e.g. QF-3 Argentina-Switzerland was 8h off)
+  const PLACEHOLDER_PHASES = ['r16', 'qf', 'sf', 'third', 'final'];
+  const knockoutPlaceholders = byTime.filter(m =>
+    PLACEHOLDER_PHASES.includes(m.phase) &&
+    (m.home === 'Por definir' || m.away === 'Por definir')
+  );
+
+  if (knockoutPlaceholders.length > 0) {
+    const closest = knockoutPlaceholders.sort((a, b) => {
+      const da = Math.abs(new Date(a.kickoff).getTime() - apiKickoff);
+      const db = Math.abs(new Date(b.kickoff).getTime() - apiKickoff);
+      return da - db;
+    })[0];
+
+    const timeDiff = Math.abs(new Date(closest.kickoff).getTime() - apiKickoff);
+    const windowH = ['qf', 'sf', 'third', 'final'].includes(closest.phase) ? 8 : 6;
+
+    if (timeDiff <= windowH * 60 * 60 * 1000) {
+      console.log(`  ↩️ Placeholder fallback → ${closest.id} (${(timeDiff / 3600000).toFixed(1)}h diff, ${closest.phase}, window ±${windowH}h)`);
+      return closest;
+    }
+  }
+
   console.log(`  ⚠️ No exact team match found for ${homeEs} vs ${awayEs}`);
   return null;
 }
@@ -170,13 +196,14 @@ function mapStatus(espnStatus) {
  * @returns {Promise<Array>} - array of { matchId, homeScore, awayScore, status, minute }
  */
 export async function fetchTodayScores(localMatches) {
-  // Fetch yesterday, today, and tomorrow to handle timezone differences
+  // Build date window: yesterday, today, and the next 3 days.
+  // The wider window ensures we pick up knockout matches (QF/SF/Final) that may
+  // be within a few days — they are SCHEDULED so no score yet, but once they
+  // start/finish they'll be captured without waiting for the next 24h window.
   const today = new Date();
-  const dates = [
-    new Date(today.getTime() - 24*60*60*1000),  // yesterday
-    today,                                        // today
-    new Date(today.getTime() + 24*60*60*1000),  // tomorrow
-  ].map(d => d.toISOString().slice(0, 10).replace(/-/g, ''));
+  const dates = Array.from({ length: 5 }, (_, i) =>
+    new Date(today.getTime() + (i - 1) * 24 * 60 * 60 * 1000)
+  ).map(d => d.toISOString().slice(0, 10).replace(/-/g, ''));
 
   const results = [];
 
@@ -539,7 +566,141 @@ export async function fetchR16Updates(localMatches) {
   return updates;
 }
 
-// Helper function to get country flag emoji (basic mapping)
+/**
+ * Generic helper to fetch knockout-stage team updates from ESPN.
+ * Used for QF, SF, 3rd place, and Final.
+ */
+async function fetchKnockoutTeamUpdates(localMatches, phase, dates, espnSlug) {
+  const label = `[${espnSlug.toUpperCase()} Updates]`;
+  console.log(`${label} Starting team update check...`);
+
+  const isPlaceholder = (team) => !team || team === 'Por definir';
+
+  const targetMatches = localMatches.filter(m =>
+    m.phase === phase && (isPlaceholder(m.home) || isPlaceholder(m.away))
+  );
+
+  console.log(`${label} Found ${targetMatches.length} matches with placeholder teams`);
+  if (targetMatches.length === 0) return [];
+
+  const updates = [];
+
+  for (const dateStr of dates) {
+    console.log(`${label} Fetching ESPN for date: ${dateStr}...`);
+    try {
+      const res = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
+      if (!res.ok) {
+        console.log(`${label} ESPN fetch failed for ${dateStr}: ${res.status}`);
+        continue;
+      }
+
+      const data = await res.json();
+      console.log(`${label} ESPN returned ${data.events?.length || 0} events for ${dateStr}`);
+
+      for (const event of (data.events || [])) {
+        const competition = event.competitions?.[0];
+        if (!competition) continue;
+
+        const seasonSlug = event.season?.slug;
+        console.log(`  [Event] ${event.name} — slug: ${seasonSlug}`);
+
+        // Accept the expected slug OR fall back to date-range matching
+        // (ESPN may change slug naming between phases)
+        const slugMatch = seasonSlug === espnSlug ||
+          // fallback: accept any non-group-stage slug on the right dates
+          (seasonSlug && !seasonSlug.includes('group') && !seasonSlug.includes('round-of'));
+
+        if (!slugMatch) {
+          console.log(`    ⏭️  Skipping — slug ${seasonSlug} doesn't match ${espnSlug}`);
+          continue;
+        }
+
+        const homeComp = competition.competitors?.find(c => c.homeAway === 'home');
+        const awayComp = competition.competitors?.find(c => c.homeAway === 'away');
+        if (!homeComp || !awayComp) continue;
+
+        const homeTeam = homeComp.team || {};
+        const awayTeam = awayComp.team || {};
+
+        // Skip if ESPN hasn't assigned real teams yet
+        if (!homeTeam.isActive || !awayTeam.isActive) {
+          console.log(`    ⏭️  Skipping placeholder teams from ESPN`);
+          continue;
+        }
+
+        const homeApi = homeTeam.displayName || homeTeam.name || '';
+        const awayApi = awayTeam.displayName || awayTeam.name || '';
+        const apiKickoff = new Date(event.date).getTime();
+
+        console.log(`  [ESPN ${espnSlug}] ${homeApi} vs ${awayApi} @ ${new Date(apiKickoff).toISOString()}`);
+
+        // Match local placeholder by closest kickoff time.
+        // Use 8h window for QF/SF/Final to absorb data-entry errors in our kickoff times.
+        const windowMs = 8 * 60 * 60 * 1000;
+        const localMatch = targetMatches
+          .filter(m => Math.abs(new Date(m.kickoff).getTime() - apiKickoff) <= windowMs)
+          .sort((a, b) =>
+            Math.abs(new Date(a.kickoff).getTime() - apiKickoff) -
+            Math.abs(new Date(b.kickoff).getTime() - apiKickoff)
+          )[0];
+
+        if (!localMatch) {
+          console.log(`    ❌ No local ${phase} match found within 8h window`);
+          continue;
+        }
+
+        console.log(`    ✅ Matched ${localMatch.id} (${(Math.abs(new Date(localMatch.kickoff).getTime() - apiKickoff) / 3600000).toFixed(1)}h diff)`);
+
+        const homeEs = resolveTeam(homeApi);
+        const awayEs = resolveTeam(awayApi);
+
+        console.log(`${label} ${localMatch.id}: ${homeEs} vs ${awayEs}`);
+
+        const alreadyAdded = updates.find(u => u.matchId === localMatch.id);
+        if (alreadyAdded) continue;
+
+        updates.push({
+          matchId: localMatch.id,
+          home: homeEs,
+          away: awayEs,
+          homeFlag: getCountryFlag(homeEs),
+          awayFlag: getCountryFlag(awayEs),
+        });
+
+        const idx = targetMatches.indexOf(localMatch);
+        if (idx > -1) targetMatches.splice(idx, 1);
+      }
+    } catch (err) {
+      console.warn(`${label} ESPN fetch failed for ${dateStr}:`, err.message);
+    }
+  }
+
+  return updates;
+}
+
+/**
+ * Fetch Quarterfinal matches from ESPN to update placeholder teams.
+ */
+export async function fetchQFUpdates(localMatches) {
+  return fetchKnockoutTeamUpdates(
+    localMatches,
+    'qf',
+    ['20260709', '20260710', '20260711'],
+    'quarterfinals'
+  );
+}
+
+/**
+ * Fetch Semifinal matches from ESPN to update placeholder teams.
+ */
+export async function fetchSFUpdates(localMatches) {
+  return fetchKnockoutTeamUpdates(
+    localMatches,
+    'sf',
+    ['20260714', '20260715'],
+    'semifinals'
+  );
+}
 function getCountryFlag(countryName) {
   const flagMap = {
     'Argentina': '🇦🇷', 'Brasil': '🇧🇷', 'México': '🇲🇽', 'Colombia': '🇨🇴',
