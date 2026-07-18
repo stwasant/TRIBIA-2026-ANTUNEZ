@@ -238,36 +238,53 @@ export async function fetchTodayScores(localMatches) {
         }
         console.log(`  ✓ Matched: ${localMatch.id} (${localMatch.home} vs ${localMatch.away})`);
 
-        const statusName = event.status?.type?.name || '';
-        const status = mapStatus(statusName);
-        if (status === 'SCHEDULED') continue; // No scores to update
-
-        const homeScore = parseInt(homeComp.score, 10);
-        const awayScore = parseInt(awayComp.score, 10);
-        if (isNaN(homeScore) || isNaN(awayScore)) continue;
-
-        // Check for penalty shootout scores
-        const homePenalties = homeComp.shootoutScore ? parseInt(homeComp.shootoutScore, 10) : null;
-        const awayPenalties = awayComp.shootoutScore ? parseInt(awayComp.shootoutScore, 10) : null;
-        const hasPenalties = homePenalties !== null && awayPenalties !== null;
-
-        if (hasPenalties) {
-          console.log(`  ⚽ Penalties: ${homePenalties} - ${awayPenalties}`);
-        }
-
         // Avoid duplicates
         const existing = results.find(r => r.matchId === localMatch.id);
         if (existing) continue;
 
-        results.push({
+        const statusName = event.status?.type?.name || '';
+        const status = mapStatus(statusName);
+
+        const isPlaceholder = localMatch.home === 'Por definir' || localMatch.away === 'Por definir';
+        const homeEs = resolveTeam(homeApi);
+        const awayEs = resolveTeam(awayApi);
+
+        const result = {
           matchId: localMatch.id,
-          homeScore,
-          awayScore,
-          homePenalties: hasPenalties ? homePenalties : undefined,
-          awayPenalties: hasPenalties ? awayPenalties : undefined,
           status,
           minute: event.status?.displayClock || '',
-        });
+        };
+
+        // Include team update for placeholder matches (third, final, etc.)
+        if (isPlaceholder) {
+          result.homeTeam = homeEs;
+          result.awayTeam = awayEs;
+          result.homeFlag = getCountryFlag(homeEs);
+          result.awayFlag = getCountryFlag(awayEs);
+          console.log(`  🔄 Placeholder team update: ${homeEs} (${result.homeFlag}) vs ${awayEs} (${result.awayFlag})`);
+        }
+
+        // Include scores if not scheduled
+        if (status !== 'SCHEDULED') {
+          const homeScore = parseInt(homeComp.score, 10);
+          const awayScore = parseInt(awayComp.score, 10);
+          if (!isNaN(homeScore) && !isNaN(awayScore)) {
+            result.homeScore = homeScore;
+            result.awayScore = awayScore;
+
+            const homePenalties = homeComp.shootoutScore ? parseInt(homeComp.shootoutScore, 10) : null;
+            const awayPenalties = awayComp.shootoutScore ? parseInt(awayComp.shootoutScore, 10) : null;
+            if (homePenalties !== null && awayPenalties !== null) {
+              result.homePenalties = homePenalties;
+              result.awayPenalties = awayPenalties;
+              console.log(`  ⚽ Penalties: ${homePenalties} - ${awayPenalties}`);
+            }
+          }
+        } else if (!isPlaceholder) {
+          continue; // No scores and no team update needed → skip
+        }
+
+        results.push(result);
       }
     } catch (err) {
       console.warn(`[LiveScores] ESPN fetch failed for ${dateStr}:`, err.message);

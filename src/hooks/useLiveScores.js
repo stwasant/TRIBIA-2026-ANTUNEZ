@@ -21,10 +21,11 @@ export function useLiveScores() {
     if (!isFootballDataConfigured) return;
 
     const sync = async () => {
-      const { getAllMatches, setMatchResult, setLiveScore } = useStore.getState();
+      const { getAllMatches, setMatchResult, setLiveScore, updateMatchTeams } = useStore.getState();
       const allMatches = getAllMatches();
       const results = await fetchTodayScores(allMatches);
 
+      const teamUpdates = [];
       for (const result of results) {
         const { matchId, homeScore, awayScore, homePenalties, awayPenalties, status } = result;
         if (status === 'FINISHED') {
@@ -32,6 +33,20 @@ export function useLiveScores() {
         } else if (status === 'IN_PLAY' || status === 'PAUSED') {
           setLiveScore(matchId, homeScore, awayScore, homePenalties, awayPenalties);
         }
+
+        if (result.homeTeam) {
+          teamUpdates.push({
+            matchId: result.matchId,
+            home: result.homeTeam,
+            away: result.awayTeam,
+            homeFlag: result.homeFlag,
+            awayFlag: result.awayFlag,
+          });
+        }
+      }
+
+      if (teamUpdates.length > 0) {
+        await updateMatchTeams(teamUpdates);
       }
     };
 
