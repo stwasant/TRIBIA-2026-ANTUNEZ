@@ -4,7 +4,7 @@ import useStore from '../store';
 import { GROUPS, PHASES } from '../data/matches';
 import MatchCard from '../components/matches/MatchCard';
 import PredictionModal from '../components/predictions/PredictionModal';
-import { isMatchToday, isMatchLive } from '../utils/scoring';
+import { isMatchToday, isMatchLive, hasMatchStarted } from '../utils/scoring';
 
 const PHASES_FILTER = [
   { key: 'all', label: 'Todos' },
@@ -54,7 +54,7 @@ export default function Partidos() {
     }
     // Filtro para "Por Jugar"
     else if (phaseFilter === 'upcoming') {
-      list = list.filter(m => m.status === 'scheduled' && !isMatchLive(m));
+      list = list.filter(m => m.status === 'scheduled' && !hasMatchStarted(m));
     }
     // Filtros por fase
     else if (phaseFilter !== 'all') {

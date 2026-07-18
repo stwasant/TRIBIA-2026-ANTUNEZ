@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import useStore from '../store';
-import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked, computeRankingPositions } from '../utils/scoring';
+import { calcularTotalUsuario, calcularPuntos, isMatchToday, isMatchLive, hasMatchStarted, formatMatchLocalTime, disponibleParaPronosticar, isAdminUnlocked, computeRankingPositions } from '../utils/scoring';
 import PredictionModal from '../components/predictions/PredictionModal';
 
 export default function Home() {
@@ -63,7 +63,7 @@ export default function Home() {
   // Usar fecha/hora local del usuario
   const todayMatches = matches.filter(m => isMatchToday(m)).length;
   const finishedMatches = matches.filter(m => m.status === 'finished').length;
-  const upcomingMatches = matches.filter(m => m.status === 'scheduled').length;
+  const upcomingMatches = matches.filter(m => m.status === 'scheduled' && !hasMatchStarted(m)).length;
   const liveMatches = matches.filter(m => isMatchLive(m)).length;
 
   // Pronósticos de hoy por partido
